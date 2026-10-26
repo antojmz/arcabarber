@@ -98,6 +98,40 @@ class SecurityTest extends TestCase
         $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
     }
 
+    public function test_password_can_be_a_four_digit_pin()
+    {
+        $user = User::factory()->create();
+
+        $this
+            ->actingAs($user)
+            ->from(route('security.edit'))
+            ->put(route('user-password.update'), [
+                'current_password' => 'password',
+                'password' => '1234',
+                'password_confirmation' => '1234',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertTrue(Hash::check('1234', $user->refresh()->password));
+    }
+
+    public function test_password_must_have_at_least_four_characters()
+    {
+        $user = User::factory()->create();
+
+        $this
+            ->actingAs($user)
+            ->from(route('security.edit'))
+            ->put(route('user-password.update'), [
+                'current_password' => 'password',
+                'password' => '123',
+                'password_confirmation' => '123',
+            ])
+            ->assertSessionHasErrors('password');
+
+        $this->assertTrue(Hash::check('password', $user->refresh()->password));
+    }
+
     public function test_correct_password_must_be_provided_to_update_password()
     {
         $user = User::factory()->create();
