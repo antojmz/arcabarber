@@ -98,25 +98,25 @@ class AccessControlTest extends TestCase
                 ->where('summary.totals.services_count', 1));
     }
 
-    public function test_barber_dashboard_only_shows_own_figures()
+    public function test_barber_panel_only_shows_own_figures()
     {
         $barber = User::factory()->barber()->create();
         Transaction::factory()->create(['barber_id' => $barber->id]);
         Transaction::factory()->count(2)->create();
 
         $this->actingAs($barber)
-            ->get(route('dashboard'))
+            ->get(route('panel'))
             ->assertInertia(fn ($page) => $page
-                ->component('barber/Dashboard')
+                ->component('barber/Panel')
                 ->where('today.totals.services_count', 1)
                 ->has('recent', 1));
     }
 
-    public function test_admin_sees_the_admin_dashboard()
+    public function test_admin_sees_the_admin_panel()
     {
         $this->actingAs(User::factory()->admin()->create())
-            ->get(route('dashboard'))
-            ->assertInertia(fn ($page) => $page->component('admin/Dashboard'));
+            ->get(route('panel'))
+            ->assertInertia(fn ($page) => $page->component('admin/Panel'));
     }
 
     public function test_admin_cannot_manage_an_admin_through_the_barber_catalog()
@@ -143,11 +143,11 @@ class AccessControlTest extends TestCase
     {
         $user = User::factory()->barber()->create();
 
-        $this->actingAs($user)->get(route('dashboard'))->assertOk();
+        $this->actingAs($user)->get(route('panel'))->assertOk();
 
         $user->update(['is_active' => false]);
 
-        $this->actingAs($user)->get(route('dashboard'))->assertRedirect(route('login'));
+        $this->actingAs($user)->get(route('panel'))->assertRedirect(route('login'));
         $this->assertGuest();
     }
 

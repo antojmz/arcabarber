@@ -7,14 +7,14 @@ import StatCard from '@/components/StatCard.vue';
 import RecentTransactions from '@/components/transactions/RecentTransactions.vue';
 import { Button } from '@/components/ui/button';
 import { formatMoney } from '@/lib/money';
-import { dashboard } from '@/routes';
+import { panel } from '@/routes';
 import { barber as barberReport, general } from '@/routes/admin/reports';
 import { create, index } from '@/routes/transactions';
 import type { Summary, Totals, Transaction } from '@/types';
 
 defineOptions({
     layout: {
-        breadcrumbs: [{ title: 'Panel', href: dashboard() }],
+        breadcrumbs: [{ title: 'Panel', href: panel() }],
     },
 });
 

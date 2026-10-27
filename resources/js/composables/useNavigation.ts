@@ -12,7 +12,7 @@ import {
 } from '@lucide/vue';
 import { computed } from 'vue';
 import type { ComputedRef } from 'vue';
-import { dashboard } from '@/routes';
+import { panel } from '@/routes';
 import barbers from '@/routes/admin/barbers';
 import closings from '@/routes/admin/closings';
 import paymentMethods from '@/routes/admin/payment-methods';
@@ -38,7 +38,7 @@ export function useNavigation(): ComputedRef<NavGroup[]> {
                     items: [
                         {
                             title: 'Mi panel',
-                            href: dashboard(),
+                            href: panel(),
                             icon: LayoutGrid,
                         },
                         {
@@ -65,7 +65,7 @@ export function useNavigation(): ComputedRef<NavGroup[]> {
             {
                 label: 'Operación',
                 items: [
-                    { title: 'Panel', href: dashboard(), icon: LayoutGrid },
+                    { title: 'Panel', href: panel(), icon: LayoutGrid },
                     {
                         title: 'Registrar servicio',
                         href: transactions.create(),

@@ -5,16 +5,22 @@ use App\Http\Controllers\Admin\CashClosingController;
 use App\Http\Controllers\Admin\PaymentMethodController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\ServiceController;
-use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MyProductionController;
+use App\Http\Controllers\PanelController;
+use App\Http\Controllers\PublicDashboardController;
 use App\Http\Controllers\TransactionController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
 Route::bind('barber', fn (string $value) => User::barbers()->findOrFail($value));
 
+Route::get('dashboard', [PublicDashboardController::class, 'show'])->name('public.dashboard');
+Route::post('dashboard/services', [PublicDashboardController::class, 'store'])
+    ->middleware('throttle:30,1')
+    ->name('public.services.store');
+
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::get('panel', PanelController::class)->name('panel');
 
     Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
     Route::get('transactions/create', [TransactionController::class, 'create'])->name('transactions.create');

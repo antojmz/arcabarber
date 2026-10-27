@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class DashboardController extends Controller
+class PanelController extends Controller
 {
     public function __invoke(Request $request, ReportService $reports): Response
     {
@@ -31,7 +31,7 @@ class DashboardController extends Controller
             ->get()
             ->map(fn (Transaction $transaction) => (new TransactionResource($transaction))->resolve());
 
-        return Inertia::render($user->isAdmin() ? 'admin/Dashboard' : 'barber/Dashboard', [
+        return Inertia::render($user->isAdmin() ? 'admin/Panel' : 'barber/Panel', [
             'today' => $reports->summary($today->startOfDay(), $today->endOfDay(), $barberId),
             'week' => $reports->summary($weekStart, $weekEnd, $barberId)['totals'],
             'month' => $reports->summary($monthStart, $monthEnd, $barberId)['totals'],
