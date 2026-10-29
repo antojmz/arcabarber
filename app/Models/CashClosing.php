@@ -21,7 +21,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $services_count
  * @property int $gross_total
  * @property int $tips_total
- * @property int $atm_fee_total
+ * @property int $iva_total
  * @property int $barber_total
  * @property int $shop_total
  * @property int $payout_total
@@ -31,7 +31,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 #[Fillable([
     'period_type', 'period_start', 'period_end', 'barber_id', 'closed_by',
-    'services_count', 'gross_total', 'tips_total', 'atm_fee_total', 'barber_total', 'shop_total', 'payout_total',
+    'services_count', 'gross_total', 'tips_total', 'iva_total', 'barber_total', 'shop_total', 'payout_total',
     'notes', 'paid_at',
 ])]
 class CashClosing extends Model
@@ -54,7 +54,7 @@ class CashClosing extends Model
             'services_count' => 'integer',
             'gross_total' => 'integer',
             'tips_total' => 'integer',
-            'atm_fee_total' => 'integer',
+            'iva_total' => 'integer',
             'barber_total' => 'integer',
             'shop_total' => 'integer',
             'payout_total' => 'integer',

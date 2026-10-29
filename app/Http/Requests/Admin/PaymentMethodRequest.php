@@ -21,10 +21,21 @@ class PaymentMethodRequest extends FormRequest
 
         return [
             'name' => ['required', 'string', 'max:50', Rule::unique(PaymentMethod::class)->ignore($paymentMethod?->id)],
-            'code' => ['required', 'string', 'max:30', 'alpha_dash', Rule::unique(PaymentMethod::class)->ignore($paymentMethod?->id)],
-            'atm_fee_rate' => ['required', 'numeric', 'between:0,100'],
+            'iva_rate' => ['required', 'numeric', 'between:0,100'],
             'is_active' => ['required', 'boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
+        ];
+    }
+
+    /**
+     * Get the custom messages for validator errors.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'name.unique' => __('Ya existe un método de pago con ese nombre. Si fue eliminado, reactívalo desde la lista de eliminados.'),
         ];
     }
 }

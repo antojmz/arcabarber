@@ -23,8 +23,7 @@ const props = defineProps<{
     paymentMethod: {
         id: number;
         name: string;
-        code: string;
-        atm_fee_rate: string;
+        iva_rate: string;
         is_active: boolean;
         sort_order: number;
     } | null;
@@ -32,16 +31,13 @@ const props = defineProps<{
 
 const form = useForm({
     name: props.paymentMethod?.name ?? '',
-    code: props.paymentMethod?.code ?? '',
-    atm_fee_rate: props.paymentMethod
-        ? Number(props.paymentMethod.atm_fee_rate)
-        : 0,
+    iva_rate: props.paymentMethod ? Number(props.paymentMethod.iva_rate) : 0,
     is_active: props.paymentMethod?.is_active ?? true,
     sort_order: props.paymentMethod?.sort_order ?? 0,
 });
 
 const example = computed(() =>
-    Math.round((20000 * Number(form.atm_fee_rate || 0)) / 100),
+    Math.round((20000 * Number(form.iva_rate || 0)) / 100),
 );
 
 function submit() {
@@ -65,12 +61,12 @@ function submit() {
                     ? `Editar ${paymentMethod.name}`
                     : 'Nuevo método de pago'
             "
-            description="Cambiar la comisión no altera los servicios ya registrados."
+            description="Cambiar el IVA no altera los servicios ya registrados."
         />
 
         <form class="space-y-6" @submit.prevent="submit">
             <div class="grid gap-4 sm:grid-cols-2">
-                <div class="grid gap-2">
+                <div class="grid gap-2 sm:col-span-2">
                     <Label for="name">Nombre</Label>
                     <Input
                         id="name"
@@ -80,21 +76,11 @@ function submit() {
                     />
                     <InputError :message="form.errors.name" />
                 </div>
-                <div class="grid gap-2">
-                    <Label for="code">Código interno</Label>
+                <div class="grid content-start gap-2">
+                    <Label for="iva_rate">IVA (%)</Label>
                     <Input
-                        id="code"
-                        v-model="form.code"
-                        required
-                        placeholder="Ej: debit"
-                    />
-                    <InputError :message="form.errors.code" />
-                </div>
-                <div class="grid gap-2">
-                    <Label for="atm_fee_rate">Comisión ATM (%)</Label>
-                    <Input
-                        id="atm_fee_rate"
-                        v-model.number="form.atm_fee_rate"
+                        id="iva_rate"
+                        v-model.number="form.iva_rate"
                         type="number"
                         min="0"
                         max="100"
@@ -103,11 +89,11 @@ function submit() {
                     />
                     <p class="text-xs text-muted-foreground">
                         Ej: un servicio de {{ formatMoney(20000) }} paga
-                        {{ formatMoney(example) }} de comisión.
+                        {{ formatMoney(example) }} de IVA.
                     </p>
-                    <InputError :message="form.errors.atm_fee_rate" />
+                    <InputError :message="form.errors.iva_rate" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid content-start gap-2">
                     <Label for="sort_order">Orden en el registro</Label>
                     <Input
                         id="sort_order"
@@ -117,7 +103,7 @@ function submit() {
                     />
                     <InputError :message="form.errors.sort_order" />
                 </div>
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 sm:col-span-2">
                     <Checkbox id="is_active" v-model="form.is_active" />
                     <Label for="is_active">Disponible para registrar</Label>
                 </div>

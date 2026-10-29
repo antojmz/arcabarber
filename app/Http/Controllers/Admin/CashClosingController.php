@@ -102,7 +102,7 @@ class CashClosingController extends Controller
             'services_count' => $closing->services_count,
             'gross_total' => $closing->gross_total,
             'tips_total' => $closing->tips_total,
-            'atm_fee_total' => $closing->atm_fee_total,
+            'iva_total' => $closing->iva_total,
             'barber_total' => $closing->barber_total,
             'shop_total' => $closing->shop_total,
             'payout_total' => $closing->payout_total,

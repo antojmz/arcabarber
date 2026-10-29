@@ -8,20 +8,20 @@ use PHPUnit\Framework\TestCase;
 
 class RevenueSplitTest extends TestCase
 {
-    public function test_atm_fee_is_deducted_before_sharing_the_net_amount()
+    public function test_iva_is_deducted_before_sharing_the_net_amount()
     {
         $split = RevenueSplit::calculate(20000, 3, 50);
 
-        $this->assertSame(600, $split->atmFee);
+        $this->assertSame(600, $split->iva);
         $this->assertSame(9700, $split->barber);
         $this->assertSame(9700, $split->shop);
     }
 
-    public function test_cash_payments_have_no_atm_fee()
+    public function test_cash_payments_have_no_iva()
     {
         $split = RevenueSplit::calculate(14000, 0, 50);
 
-        $this->assertSame(0, $split->atmFee);
+        $this->assertSame(0, $split->iva);
         $this->assertSame(7000, $split->barber);
         $this->assertSame(7000, $split->shop);
     }
@@ -30,17 +30,17 @@ class RevenueSplitTest extends TestCase
     {
         $split = RevenueSplit::calculate(19000, '1.50', '45.00');
 
-        $this->assertSame(285, $split->atmFee);
+        $this->assertSame(285, $split->iva);
         $this->assertSame(8422, $split->barber);
         $this->assertSame(10293, $split->shop);
     }
 
     #[DataProvider('amounts')]
-    public function test_the_three_parts_always_add_up_to_the_amount(int $amount, float $atmFeeRate, float $commissionRate)
+    public function test_the_three_parts_always_add_up_to_the_amount(int $amount, float $ivaRate, float $commissionRate)
     {
-        $split = RevenueSplit::calculate($amount, $atmFeeRate, $commissionRate);
+        $split = RevenueSplit::calculate($amount, $ivaRate, $commissionRate);
 
-        $this->assertSame($amount, $split->atmFee + $split->barber + $split->shop);
+        $this->assertSame($amount, $split->iva + $split->barber + $split->shop);
         $this->assertGreaterThanOrEqual(0, $split->shop);
     }
 

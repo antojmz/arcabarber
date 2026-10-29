@@ -47,15 +47,15 @@ class DatabaseSeeder extends Seeder
     private function seedPaymentMethods(): void
     {
         $methods = [
-            ['code' => 'cash', 'name' => 'Efectivo', 'atm_fee_rate' => 0],
-            ['code' => 'transfer', 'name' => 'Transferencia', 'atm_fee_rate' => 0],
-            ['code' => 'debit', 'name' => 'Débito', 'atm_fee_rate' => 1.5],
-            ['code' => 'credit', 'name' => 'Crédito', 'atm_fee_rate' => 3],
+            ['name' => 'Efectivo', 'iva_rate' => 0],
+            ['name' => 'Transferencia', 'iva_rate' => 0],
+            ['name' => 'Débito', 'iva_rate' => 1.5],
+            ['name' => 'Crédito', 'iva_rate' => 3],
         ];
 
         foreach ($methods as $order => $method) {
             PaymentMethod::withTrashed()->firstOrCreate(
-                ['code' => $method['code']],
+                ['name' => $method['name']],
                 [...$method, 'sort_order' => $order],
             );
         }

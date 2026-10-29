@@ -27,4 +27,16 @@ class ServiceRequest extends FormRequest
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
         ];
     }
+
+    /**
+     * Get the custom messages for validator errors.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'name.unique' => __('Ya existe un servicio con ese nombre. Si fue eliminado, reactívalo desde la lista de eliminados.'),
+        ];
+    }
 }

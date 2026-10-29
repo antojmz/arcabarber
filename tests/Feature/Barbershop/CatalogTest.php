@@ -94,14 +94,66 @@ class CatalogTest extends TestCase
     public function test_admin_manages_payment_methods()
     {
         $this->actingAs($this->admin)
-            ->post(route('admin.payment-methods.store'), ['name' => 'Crédito', 'code' => 'credit', 'atm_fee_rate' => 2.95, 'is_active' => true])
+            ->post(route('admin.payment-methods.store'), ['name' => 'Crédito', 'iva_rate' => 2.95, 'is_active' => true])
             ->assertSessionHasNoErrors();
 
-        $this->assertSame('2.95', PaymentMethod::sole()->atm_fee_rate);
+        $this->assertSame('2.95', PaymentMethod::sole()->iva_rate);
 
         $this->actingAs($this->admin)
-            ->post(route('admin.payment-methods.store'), ['name' => 'Otro', 'code' => 'other', 'atm_fee_rate' => -1, 'is_active' => true])
-            ->assertSessionHasErrors('atm_fee_rate');
+            ->post(route('admin.payment-methods.store'), ['name' => 'Otro', 'iva_rate' => -1, 'is_active' => true])
+            ->assertSessionHasErrors('iva_rate');
+    }
+
+    public function test_admin_restores_a_deleted_service()
+    {
+        $service = Service::factory()->create(['base_price' => 19000]);
+        $service->delete();
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.services.index'))
+            ->assertInertia(fn ($page) => $page
+                ->has('services', 0)
+                ->where('trashedServices.0.id', $service->id));
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.services.restore', $service))
+            ->assertRedirect(route('admin.services.index'));
+
+        $this->assertNotSoftDeleted($service);
+        $this->assertSame(19000, $service->fresh()->base_price);
+    }
+
+    public function test_admin_restores_a_deleted_payment_method()
+    {
+        $paymentMethod = PaymentMethod::factory()->withIva(3)->create();
+        $paymentMethod->delete();
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.payment-methods.index'))
+            ->assertInertia(fn ($page) => $page
+                ->has('paymentMethods', 0)
+                ->where('trashedPaymentMethods.0.id', $paymentMethod->id));
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.payment-methods.restore', $paymentMethod))
+            ->assertRedirect(route('admin.payment-methods.index'));
+
+        $this->assertNotSoftDeleted($paymentMethod);
+    }
+
+    public function test_barbers_cannot_restore_catalog_items()
+    {
+        $barber = User::factory()->barber()->create();
+        $service = Service::factory()->create();
+        $paymentMethod = PaymentMethod::factory()->create();
+        $service->delete();
+        $paymentMethod->delete();
+
+        $this->actingAs($barber)->post(route('admin.services.restore', $service))->assertForbidden();
+        $this->actingAs($barber)->post(route('admin.payment-methods.restore', $paymentMethod))->assertForbidden();
+
+        $this->assertSoftDeleted($service);
+        $this->assertSoftDeleted($paymentMethod);
     }
 
     public function test_catalog_pages_render()

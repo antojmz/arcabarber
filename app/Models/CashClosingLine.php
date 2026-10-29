@@ -16,13 +16,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $services_count
  * @property int $gross_total
  * @property int $tips_total
- * @property int $atm_fee_total
+ * @property int $iva_total
  * @property int $barber_total
  * @property int $shop_total
  */
 #[Fillable([
     'cash_closing_id', 'payment_method_id', 'payment_method_name', 'barber_id', 'barber_name',
-    'services_count', 'gross_total', 'tips_total', 'atm_fee_total', 'barber_total', 'shop_total',
+    'services_count', 'gross_total', 'tips_total', 'iva_total', 'barber_total', 'shop_total',
 ])]
 class CashClosingLine extends Model
 {
@@ -37,7 +37,7 @@ class CashClosingLine extends Model
             'services_count' => 'integer',
             'gross_total' => 'integer',
             'tips_total' => 'integer',
-            'atm_fee_total' => 'integer',
+            'iva_total' => 'integer',
             'barber_total' => 'integer',
             'shop_total' => 'integer',
         ];

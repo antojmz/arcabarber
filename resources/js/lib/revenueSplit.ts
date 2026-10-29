@@ -1,5 +1,5 @@
 export type RevenueSplit = {
-    atmFee: number;
+    iva: number;
     barber: number;
     shop: number;
 };
@@ -10,12 +10,12 @@ export type RevenueSplit = {
  */
 export function calculateRevenueSplit(
     amount: number,
-    atmFeeRate: number | string,
+    ivaRate: number | string,
     barberCommissionRate: number | string,
 ): RevenueSplit {
-    const atmFee = Math.round((amount * Number(atmFeeRate)) / 100);
-    const net = amount - atmFee;
+    const iva = Math.round((amount * Number(ivaRate)) / 100);
+    const net = amount - iva;
     const barber = Math.round((net * Number(barberCommissionRate)) / 100);
 
-    return { atmFee, barber, shop: net - barber };
+    return { iva, barber, shop: net - barber };
 }

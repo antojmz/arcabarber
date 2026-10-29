@@ -33,7 +33,7 @@ const form = useForm({
     name: props.barber?.name ?? '',
     email: props.barber?.email ?? '',
     phone: props.barber?.phone ?? '',
-    commission_rate: props.barber ? Number(props.barber.commission_rate) : 50,
+    commission_rate: props.barber ? Number(props.barber.commission_rate) : 40,
     is_active: props.barber?.is_active ?? true,
     password: '',
     password_confirmation: '',
@@ -97,8 +97,8 @@ function submit() {
                         required
                     />
                     <p class="text-xs text-muted-foreground">
-                        Porcentaje del monto neto (después de la comisión ATM)
-                        que recibe el barbero. El resto queda para la barbería.
+                        Porcentaje del monto neto (después del IVA) que recibe
+                        el barbero. El resto queda para la barbería.
                     </p>
                     <InputError :message="form.errors.commission_rate" />
                 </div>

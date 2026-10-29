@@ -61,9 +61,9 @@ defineProps<{
                     :value="today.totals.services_count"
                 />
                 <StatCard
-                    label="Comisión ATM"
+                    label="IVA"
                     tone="muted"
-                    :value="formatMoney(today.totals.atm_fee_total)"
+                    :value="formatMoney(today.totals.iva_total)"
                 />
                 <StatCard
                     label="A pagar barberos"

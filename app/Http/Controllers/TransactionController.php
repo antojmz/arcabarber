@@ -51,7 +51,7 @@ class TransactionController extends Controller
 
         $totals = (clone $query)->valid()->toBase()->selectRaw(
             'COUNT(*) as services_count, COALESCE(SUM(amount), 0) as gross_total, COALESCE(SUM(tip), 0) as tips_total, '
-            .'COALESCE(SUM(atm_fee_amount), 0) as atm_fee_total, COALESCE(SUM(barber_amount), 0) as barber_total, COALESCE(SUM(shop_amount), 0) as shop_total',
+            .'COALESCE(SUM(iva_amount), 0) as iva_total, COALESCE(SUM(barber_amount), 0) as barber_total, COALESCE(SUM(shop_amount), 0) as shop_total',
         )->first();
 
         $closedPeriods = ClosedPeriods::between($from, $to);
@@ -95,13 +95,13 @@ class TransactionController extends Controller
      */
     public function store(StoreTransactionRequest $request, RegisterTransaction $registerTransaction): RedirectResponse
     {
-        $transaction = $registerTransaction->handle($request->user(), $request->transactionData());
+        $transactions = $registerTransaction->handle($request->user(), $request->transactionData());
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => __('Servicio registrado: :service para :barber.', [
-                'service' => $transaction->service_name,
-                'barber' => $transaction->barber->name,
+            'message' => trans_choice('{1} Servicio registrado: :services para :barber.|[2,*] Servicios registrados: :services para :barber.', $transactions->count(), [
+                'services' => $transactions->pluck('service_name')->join(', ', ' y '),
+                'barber' => $transactions->first()->barber->name,
             ]),
         ]);
 
@@ -165,7 +165,7 @@ class TransactionController extends Controller
             'paymentMethods' => PaymentMethod::withTrashed()
                 ->where($this->activeOr($transaction?->payment_method_id))
                 ->ordered()
-                ->get(['id', 'name', 'code', 'atm_fee_rate']),
+                ->get(['id', 'name', 'iva_rate']),
             'barbers' => $user->isAdmin() ? $this->barberOptions($transaction?->barber_id) : [],
             'currentBarber' => $user->isAdmin() ? null : $user->only('id', 'name', 'commission_rate'),
         ];

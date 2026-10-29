@@ -21,7 +21,8 @@ class PublicServiceRequest extends FormRequest
                 ->where('role', UserRole::Barber->value)
                 ->where('is_active', true)
                 ->whereNull('deleted_at')],
-            'service_id' => ['required', 'integer', Rule::exists('services', 'id')->where('is_active', true)->whereNull('deleted_at')],
+            'service_ids' => ['required', 'array', 'min:1', 'max:20'],
+            'service_ids.*' => ['required', 'integer', 'distinct', Rule::exists('services', 'id')->where('is_active', true)->whereNull('deleted_at')],
             'payment_method_id' => ['required', 'integer', Rule::exists('payment_methods', 'id')->where('is_active', true)->whereNull('deleted_at')],
             'tip' => ['nullable', 'integer', 'min:0', 'max:10000000'],
             'password' => ['required', 'string'],

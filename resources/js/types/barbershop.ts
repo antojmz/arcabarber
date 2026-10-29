@@ -6,7 +6,7 @@ export type Totals = {
     services_count: number;
     gross_total: number;
     tips_total: number;
-    atm_fee_total: number;
+    iva_total: number;
     barber_total: number;
     shop_total: number;
     payout_total?: number;
@@ -54,8 +54,7 @@ export type ServiceOption = {
 export type PaymentMethodOption = {
     id: number;
     name: string;
-    code?: string;
-    atm_fee_rate?: string | number;
+    iva_rate?: string | number;
 };
 
 export type BarberOption = {
@@ -75,11 +74,11 @@ export type Transaction = {
     service_base_price: number;
     payment_method_id: number;
     payment_method_name: string;
-    atm_fee_rate: number;
+    iva_rate: number;
     barber_commission_rate: number;
     amount: number;
     tip: number;
-    atm_fee_amount: number;
+    iva_amount: number;
     barber_amount: number;
     shop_amount: number;
     notes: string | null;

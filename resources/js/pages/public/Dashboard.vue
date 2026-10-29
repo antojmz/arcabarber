@@ -51,13 +51,24 @@ const todayLabel = new Intl.DateTimeFormat('es-CL', {
 
 const form = useForm({
     barber_id: null as number | null,
-    service_id: null as number | null,
+    service_ids: [] as number[],
     payment_method_id: null as number | null,
     tip: undefined as number | undefined,
     password: '',
 });
 
 const tipPresets = [0, 1000, 2000, 3000, 5000];
+
+const servicesError = computed(() => {
+    const errors = form.errors as Record<string, string | undefined>;
+
+    return (
+        errors.service_ids ??
+        Object.entries(errors).find(([field]) =>
+            field.startsWith('service_ids.'),
+        )?.[1]
+    );
+});
 
 // Raised by the backend when today's period was already closed.
 const periodError = computed(
@@ -67,8 +78,14 @@ const periodError = computed(
 const selectedBarber = computed(() =>
     props.barbers.find((barber) => barber.id === form.barber_id),
 );
-const selectedService = computed(() =>
-    props.services.find((service) => service.id === form.service_id),
+const selectedServices = computed(() =>
+    props.services.filter((service) => form.service_ids.includes(service.id)),
+);
+const servicesTotal = computed(() =>
+    selectedServices.value.reduce(
+        (total, service) => total + service.base_price,
+        0,
+    ),
 );
 const selectedMethod = computed(() =>
     props.paymentMethods.find((method) => method.id === form.payment_method_id),
@@ -84,6 +101,12 @@ function servicesOf(barberId: number): number {
     );
 }
 
+function toggleService(serviceId: number) {
+    form.service_ids = form.service_ids.includes(serviceId)
+        ? form.service_ids.filter((id) => id !== serviceId)
+        : [...form.service_ids, serviceId];
+}
+
 function openConfirmation() {
     form.clearErrors();
 
@@ -91,8 +114,8 @@ function openConfirmation() {
         form.setError('barber_id', 'Selecciona un barbero.');
     }
 
-    if (!selectedService.value) {
-        form.setError('service_id', 'Selecciona un servicio.');
+    if (selectedServices.value.length === 0) {
+        form.setError('service_ids', 'Selecciona al menos un servicio.');
     }
 
     if (!selectedMethod.value) {
@@ -251,18 +274,26 @@ const chipActive =
                     </section>
 
                     <section class="space-y-2">
-                        <Label>2. Servicio</Label>
+                        <Label>
+                            2. Servicios
+                            <span class="font-normal text-muted-foreground"
+                                >(puedes elegir varios)</span
+                            >
+                        </Label>
                         <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
                             <button
                                 v-for="service in services"
                                 :key="service.id"
                                 type="button"
+                                :aria-pressed="
+                                    form.service_ids.includes(service.id)
+                                "
                                 :class="[
                                     chip,
-                                    form.service_id === service.id &&
+                                    form.service_ids.includes(service.id) &&
                                         chipActive,
                                 ]"
-                                @click="form.service_id = service.id"
+                                @click="toggleService(service.id)"
                             >
                                 <span class="block font-medium">{{
                                     service.name
@@ -272,7 +303,7 @@ const chipActive =
                                 </span>
                             </button>
                         </div>
-                        <InputError :message="form.errors.service_id" />
+                        <InputError :message="servicesError" />
                     </section>
 
                     <section class="space-y-2">
@@ -334,6 +365,30 @@ const chipActive =
                     </section>
 
                     <InputError :message="periodError" />
+
+                    <div
+                        class="flex items-baseline justify-between rounded-lg border bg-muted/40 px-4 py-3"
+                        data-test="public-total"
+                    >
+                        <span class="text-sm text-muted-foreground">
+                            Total a cobrar
+                            <template v-if="selectedServices.length > 0">
+                                ({{ selectedServices.length }}
+                                {{
+                                    selectedServices.length === 1
+                                        ? 'servicio'
+                                        : 'servicios'
+                                }})
+                            </template>
+                        </span>
+                        <span class="text-2xl font-semibold tabular-nums">
+                            {{
+                                formatMoney(
+                                    servicesTotal + Number(form.tip ?? 0),
+                                )
+                            }}
+                        </span>
+                    </div>
 
                     <Button
                         type="submit"
@@ -406,8 +461,13 @@ const chipActive =
                     <DialogHeader class="space-y-3">
                         <DialogTitle>Confirmar registro</DialogTitle>
                         <DialogDescription>
-                            {{ selectedBarber?.name }} confirma el servicio con
-                            su contraseña.
+                            {{ selectedBarber?.name }} confirma
+                            {{
+                                selectedServices.length > 1
+                                    ? 'los servicios'
+                                    : 'el servicio'
+                            }}
+                            con su contraseña.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -421,17 +481,25 @@ const chipActive =
                             </dd>
                         </div>
                         <div class="flex justify-between gap-4">
-                            <dt class="text-muted-foreground">Servicio</dt>
-                            <dd class="text-right font-medium">
-                                {{ selectedService?.name }}
-                                <span
-                                    class="text-muted-foreground tabular-nums"
+                            <dt class="text-muted-foreground">
+                                {{
+                                    selectedServices.length > 1
+                                        ? 'Servicios'
+                                        : 'Servicio'
+                                }}
+                            </dt>
+                            <dd class="space-y-1 text-right font-medium">
+                                <p
+                                    v-for="service in selectedServices"
+                                    :key="service.id"
                                 >
-                                    ·
-                                    {{
-                                        formatMoney(selectedService?.base_price)
-                                    }}
-                                </span>
+                                    {{ service.name }}
+                                    <span
+                                        class="text-muted-foreground tabular-nums"
+                                    >
+                                        · {{ formatMoney(service.base_price) }}
+                                    </span>
+                                </p>
                             </dd>
                         </div>
                         <div class="flex justify-between gap-4">
@@ -449,6 +517,20 @@ const chipActive =
                                     form.tip
                                         ? formatMoney(form.tip)
                                         : 'Sin propina'
+                                }}
+                            </dd>
+                        </div>
+                        <div
+                            class="flex items-baseline justify-between gap-4 border-t pt-2"
+                        >
+                            <dt class="text-muted-foreground">
+                                Total a cobrar
+                            </dt>
+                            <dd class="text-lg font-semibold tabular-nums">
+                                {{
+                                    formatMoney(
+                                        servicesTotal + Number(form.tip ?? 0),
+                                    )
                                 }}
                             </dd>
                         </div>

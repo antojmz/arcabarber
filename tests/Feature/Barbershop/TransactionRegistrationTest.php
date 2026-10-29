@@ -22,7 +22,7 @@ class TransactionRegistrationTest extends TestCase
         parent::setUp();
 
         $this->haircut = Service::factory()->create(['name' => 'Corte de cabello', 'base_price' => 20000]);
-        $this->debit = PaymentMethod::factory()->withAtmFee(3)->create(['name' => 'Débito']);
+        $this->debit = PaymentMethod::factory()->withIva(3)->create(['name' => 'Débito']);
     }
 
     public function test_the_point_of_sale_renders_the_catalogs()
@@ -51,9 +51,8 @@ class TransactionRegistrationTest extends TestCase
         $this->actingAs($admin)
             ->post(route('transactions.store'), [
                 'barber_id' => $barber->id,
-                'service_id' => $this->haircut->id,
+                'services' => [['service_id' => $this->haircut->id, 'amount' => 20000]],
                 'payment_method_id' => $this->debit->id,
-                'amount' => 20000,
                 'tip' => 2000,
             ])
             ->assertSessionHasNoErrors()
@@ -64,7 +63,7 @@ class TransactionRegistrationTest extends TestCase
             'registered_by' => $admin->id,
             'amount' => 20000,
             'tip' => 2000,
-            'atm_fee_amount' => 600,
+            'iva_amount' => 600,
             'barber_amount' => 9700,
             'shop_amount' => 9700,
             'service_name' => 'Corte de cabello',
@@ -79,16 +78,15 @@ class TransactionRegistrationTest extends TestCase
 
         $this->actingAs($admin)->post(route('transactions.store'), [
             'barber_id' => $barber->id,
-            'service_id' => $this->haircut->id,
+            'services' => [['service_id' => $this->haircut->id, 'amount' => 10000]],
             'payment_method_id' => $this->debit->id,
-            'amount' => 10000,
             'notes' => 'Descuento',
         ]);
 
         $transaction = Transaction::sole();
         $this->assertSame(10000, $transaction->amount);
         $this->assertSame(20000, $transaction->service_base_price);
-        $this->assertSame(300, $transaction->atm_fee_amount);
+        $this->assertSame(300, $transaction->iva_amount);
     }
 
     public function test_barbers_register_for_themselves_at_the_base_price()
@@ -99,9 +97,8 @@ class TransactionRegistrationTest extends TestCase
         $this->actingAs($barber)
             ->post(route('transactions.store'), [
                 'barber_id' => $colleague->id,
-                'service_id' => $this->haircut->id,
+                'services' => [['service_id' => $this->haircut->id, 'amount' => 1]],
                 'payment_method_id' => $this->debit->id,
-                'amount' => 1,
                 'performed_at' => now()->subMonth()->toDateTimeString(),
             ])
             ->assertSessionHasNoErrors();
@@ -112,6 +109,65 @@ class TransactionRegistrationTest extends TestCase
         $this->assertTrue($transaction->performed_at->isToday());
     }
 
+    public function test_several_services_are_registered_as_one_transaction_each()
+    {
+        $barber = User::factory()->barber()->create(['commission_rate' => 50]);
+        $beard = Service::factory()->create(['name' => 'Barba', 'base_price' => 8000]);
+
+        $this->actingAs($barber)
+            ->post(route('transactions.store'), [
+                'services' => [['service_id' => $this->haircut->id], ['service_id' => $beard->id]],
+                'payment_method_id' => $this->debit->id,
+                'tip' => 2000,
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('transactions.create'));
+
+        $transactions = Transaction::orderBy('id')->get();
+        $this->assertSame(['Corte de cabello', 'Barba'], $transactions->pluck('service_name')->all());
+        $this->assertSame([20000, 8000], $transactions->pluck('amount')->all());
+        $this->assertSame(2000, $transactions->sum('tip'));
+        $this->assertSame(840, $transactions->sum('iva_amount'));
+    }
+
+    public function test_admin_sets_the_amount_of_each_service()
+    {
+        $admin = User::factory()->admin()->create();
+        $barber = User::factory()->barber()->create();
+        $beard = Service::factory()->create(['base_price' => 8000]);
+
+        $this->actingAs($admin)
+            ->post(route('transactions.store'), [
+                'barber_id' => $barber->id,
+                'services' => [
+                    ['service_id' => $this->haircut->id, 'amount' => 18000],
+                    ['service_id' => $beard->id],
+                ],
+                'payment_method_id' => $this->debit->id,
+            ])
+            ->assertSessionHasErrors('services.1.amount');
+
+        $this->assertDatabaseCount('transactions', 0);
+    }
+
+    public function test_the_same_service_cannot_be_selected_twice()
+    {
+        $barber = User::factory()->barber()->create();
+
+        $this->actingAs($barber)
+            ->post(route('transactions.store'), [
+                'services' => [['service_id' => $this->haircut->id], ['service_id' => $this->haircut->id]],
+                'payment_method_id' => $this->debit->id,
+            ])
+            ->assertSessionHasErrors('services.0.service_id');
+
+        $this->actingAs($barber)
+            ->post(route('transactions.store'), ['services' => [], 'payment_method_id' => $this->debit->id])
+            ->assertSessionHasErrors('services');
+
+        $this->assertDatabaseCount('transactions', 0);
+    }
+
     public function test_admin_must_choose_an_active_barber()
     {
         $admin = User::factory()->admin()->create();
@@ -120,18 +176,16 @@ class TransactionRegistrationTest extends TestCase
         $this->actingAs($admin)
             ->post(route('transactions.store'), [
                 'barber_id' => $inactive->id,
-                'service_id' => $this->haircut->id,
+                'services' => [['service_id' => $this->haircut->id, 'amount' => 20000]],
                 'payment_method_id' => $this->debit->id,
-                'amount' => 20000,
             ])
             ->assertSessionHasErrors('barber_id');
 
         $this->actingAs($admin)
             ->post(route('transactions.store'), [
                 'barber_id' => $admin->id,
-                'service_id' => $this->haircut->id,
+                'services' => [['service_id' => $this->haircut->id, 'amount' => 20000]],
                 'payment_method_id' => $this->debit->id,
-                'amount' => 20000,
             ])
             ->assertSessionHasErrors('barber_id');
 
@@ -146,10 +200,10 @@ class TransactionRegistrationTest extends TestCase
 
         $this->actingAs($barber)
             ->post(route('transactions.store'), [
-                'service_id' => $inactiveService->id,
+                'services' => [['service_id' => $inactiveService->id]],
                 'payment_method_id' => $inactiveMethod->id,
             ])
-            ->assertSessionHasErrors(['service_id', 'payment_method_id']);
+            ->assertSessionHasErrors(['services.0.service_id', 'payment_method_id']);
     }
 
     public function test_catalog_changes_do_not_alter_registered_transactions()
@@ -157,18 +211,18 @@ class TransactionRegistrationTest extends TestCase
         $barber = User::factory()->barber()->create(['commission_rate' => 50]);
 
         $this->actingAs($barber)->post(route('transactions.store'), [
-            'service_id' => $this->haircut->id,
+            'services' => [['service_id' => $this->haircut->id]],
             'payment_method_id' => $this->debit->id,
         ]);
 
         $this->haircut->update(['name' => 'Corte premium', 'base_price' => 30000]);
-        $this->debit->update(['atm_fee_rate' => 10]);
+        $this->debit->update(['iva_rate' => 10]);
         $barber->update(['commission_rate' => 70]);
 
         $transaction = Transaction::sole();
         $this->assertSame('Corte de cabello', $transaction->service_name);
         $this->assertSame(20000, $transaction->amount);
-        $this->assertSame('3.00', $transaction->atm_fee_rate);
+        $this->assertSame('3.00', $transaction->iva_rate);
         $this->assertSame('50.00', $transaction->barber_commission_rate);
         $this->assertSame(9700, $transaction->barber_amount);
     }
@@ -183,7 +237,7 @@ class TransactionRegistrationTest extends TestCase
             'payment_method_id' => $this->debit->id,
         ]);
 
-        $this->debit->update(['atm_fee_rate' => 10]);
+        $this->debit->update(['iva_rate' => 10]);
 
         $this->actingAs($admin)
             ->put(route('transactions.update', $transaction), [
@@ -199,7 +253,7 @@ class TransactionRegistrationTest extends TestCase
         $transaction->refresh();
         $this->assertSame(10000, $transaction->amount);
         $this->assertSame(500, $transaction->tip);
-        $this->assertSame(300, $transaction->atm_fee_amount);
+        $this->assertSame(300, $transaction->iva_amount);
         $this->assertSame(4850, $transaction->barber_amount);
     }
 
@@ -222,7 +276,7 @@ class TransactionRegistrationTest extends TestCase
 
         $transaction->refresh();
         $this->assertSame('Efectivo', $transaction->payment_method_name);
-        $this->assertSame(0, $transaction->atm_fee_amount);
+        $this->assertSame(0, $transaction->iva_amount);
     }
 
     public function test_admin_can_void_a_transaction_with_a_reason()

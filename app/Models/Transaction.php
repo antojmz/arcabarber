@@ -22,11 +22,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $service_name
  * @property int $service_base_price
  * @property string $payment_method_name
- * @property string $atm_fee_rate
+ * @property string $iva_rate
  * @property string $barber_commission_rate
  * @property int $amount
  * @property int $tip
- * @property int $atm_fee_amount
+ * @property int $iva_amount
  * @property int $barber_amount
  * @property int $shop_amount
  * @property string|null $notes
@@ -38,8 +38,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 #[Fillable([
     'barber_id', 'service_id', 'payment_method_id', 'registered_by', 'performed_at',
-    'service_name', 'service_base_price', 'payment_method_name', 'atm_fee_rate', 'barber_commission_rate',
-    'amount', 'tip', 'atm_fee_amount', 'barber_amount', 'shop_amount', 'notes',
+    'service_name', 'service_base_price', 'payment_method_name', 'iva_rate', 'barber_commission_rate',
+    'amount', 'tip', 'iva_amount', 'barber_amount', 'shop_amount', 'notes',
     'voided_at', 'voided_by', 'void_reason',
 ])]
 class Transaction extends Model
@@ -57,12 +57,12 @@ class Transaction extends Model
         return [
             'performed_at' => 'datetime',
             'voided_at' => 'datetime',
-            'atm_fee_rate' => 'decimal:2',
+            'iva_rate' => 'decimal:2',
             'barber_commission_rate' => 'decimal:2',
             'service_base_price' => 'integer',
             'amount' => 'integer',
             'tip' => 'integer',
-            'atm_fee_amount' => 'integer',
+            'iva_amount' => 'integer',
             'barber_amount' => 'integer',
             'shop_amount' => 'integer',
         ];

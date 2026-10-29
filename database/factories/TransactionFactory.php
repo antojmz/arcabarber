@@ -30,11 +30,11 @@ class TransactionFactory extends Factory
             'service_name' => fn (array $attributes) => Service::whereKey($attributes['service_id'])->firstOrFail()->name,
             'service_base_price' => fn (array $attributes) => Service::whereKey($attributes['service_id'])->firstOrFail()->base_price,
             'payment_method_name' => fn (array $attributes) => PaymentMethod::whereKey($attributes['payment_method_id'])->firstOrFail()->name,
-            'atm_fee_rate' => fn (array $attributes) => PaymentMethod::whereKey($attributes['payment_method_id'])->firstOrFail()->atm_fee_rate,
+            'iva_rate' => fn (array $attributes) => PaymentMethod::whereKey($attributes['payment_method_id'])->firstOrFail()->iva_rate,
             'barber_commission_rate' => fn (array $attributes) => User::whereKey($attributes['barber_id'])->firstOrFail()->commission_rate,
             'amount' => fn (array $attributes) => $attributes['service_base_price'],
             'tip' => 0,
-            'atm_fee_amount' => fn (array $attributes) => $this->split($attributes)->atmFee,
+            'iva_amount' => fn (array $attributes) => $this->split($attributes)->iva,
             'barber_amount' => fn (array $attributes) => $this->split($attributes)->barber,
             'shop_amount' => fn (array $attributes) => $this->split($attributes)->shop,
         ];
@@ -59,7 +59,7 @@ class TransactionFactory extends Factory
     {
         return RevenueSplit::calculate(
             $attributes['amount'],
-            $attributes['atm_fee_rate'],
+            $attributes['iva_rate'],
             $attributes['barber_commission_rate'],
         );
     }

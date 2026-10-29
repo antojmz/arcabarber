@@ -14,7 +14,7 @@ class ReportService
      * Aggregated columns shared by every breakdown.
      */
     private const string AGGREGATES = 'COUNT(*) as services_count, SUM(amount) as gross_total, SUM(tip) as tips_total, '
-        .'SUM(atm_fee_amount) as atm_fee_total, SUM(barber_amount) as barber_total, SUM(shop_amount) as shop_total';
+        .'SUM(iva_amount) as iva_total, SUM(barber_amount) as barber_total, SUM(shop_amount) as shop_total';
 
     /**
      * Build the financial summary of a period, optionally limited to one barber.
@@ -69,7 +69,7 @@ class ReportService
     {
         $lines = collect($lines);
 
-        $totals = collect(['services_count', 'gross_total', 'tips_total', 'atm_fee_total', 'barber_total', 'shop_total'])
+        $totals = collect(['services_count', 'gross_total', 'tips_total', 'iva_total', 'barber_total', 'shop_total'])
             ->mapWithKeys(fn (string $column) => [$column => (int) $lines->sum($column)])
             ->all();
 

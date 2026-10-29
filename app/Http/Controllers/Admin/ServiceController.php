@@ -15,6 +15,7 @@ class ServiceController extends Controller
     {
         return Inertia::render('admin/services/Index', [
             'services' => Service::ordered()->get(['id', 'name', 'base_price', 'duration_minutes', 'is_active', 'sort_order']),
+            'trashedServices' => Service::onlyTrashed()->ordered()->get(['id', 'name', 'base_price', 'deleted_at']),
         ]);
     }
 
@@ -53,6 +54,18 @@ class ServiceController extends Controller
         $service->delete();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Servicio eliminado.')]);
+
+        return to_route('admin.services.index');
+    }
+
+    /**
+     * Bring back a soft deleted service, keeping its previous settings.
+     */
+    public function restore(Service $service): RedirectResponse
+    {
+        $service->restore();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Servicio reactivado.')]);
 
         return to_route('admin.services.index');
     }

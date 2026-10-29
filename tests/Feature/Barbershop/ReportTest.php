@@ -35,7 +35,7 @@ class ReportTest extends TestCase
         $this->carlos = User::factory()->barber()->create(['name' => 'Carlos', 'commission_rate' => 50]);
         $this->matias = User::factory()->barber()->create(['name' => 'Matías', 'commission_rate' => 40]);
         $this->cash = PaymentMethod::factory()->create(['name' => 'Efectivo']);
-        $this->debit = PaymentMethod::factory()->withAtmFee(3)->create(['name' => 'Débito']);
+        $this->debit = PaymentMethod::factory()->withIva(3)->create(['name' => 'Débito']);
         $this->haircut = Service::factory()->create(['base_price' => 20000]);
     }
 
@@ -75,7 +75,7 @@ class ReportTest extends TestCase
             'services_count' => 3,
             'gross_total' => 60000,
             'tips_total' => 1000,
-            'atm_fee_total' => 1200,
+            'iva_total' => 1200,
             'barber_total' => 29400,
             'shop_total' => 29400,
             'payout_total' => 30400,

@@ -145,7 +145,7 @@ watch(
                 v-if="isAdmin"
                 label="Barbería"
                 :value="formatMoney(totals.shop_total)"
-                :hint="`ATM: ${formatMoney(totals.atm_fee_total)}`"
+                :hint="`IVA: ${formatMoney(totals.iva_total)}`"
                 class="col-span-2 lg:col-span-1"
             />
             <StatCard
@@ -206,9 +206,8 @@ watch(
                             >Barbería
                             {{ formatMoney(transaction.shop_amount) }}</span
                         >
-                        <span v-if="transaction.atm_fee_amount"
-                            >ATM
-                            {{ formatMoney(transaction.atm_fee_amount) }}</span
+                        <span v-if="transaction.iva_amount"
+                            >IVA {{ formatMoney(transaction.iva_amount) }}</span
                         >
                     </div>
                     <div class="mt-2 flex flex-wrap items-center gap-2">
@@ -256,7 +255,7 @@ watch(
                                 v-if="isAdmin"
                                 class="px-4 py-2.5 text-right font-medium"
                             >
-                                ATM
+                                IVA
                             </th>
                             <th class="px-4 py-2.5 text-right font-medium">
                                 Barbero
@@ -321,7 +320,7 @@ watch(
                                 v-if="isAdmin"
                                 class="px-4 py-2.5 text-right text-muted-foreground tabular-nums"
                             >
-                                {{ formatMoney(transaction.atm_fee_amount) }}
+                                {{ formatMoney(transaction.iva_amount) }}
                             </td>
                             <td class="px-4 py-2.5 text-right tabular-nums">
                                 {{ formatMoney(transaction.barber_amount) }}

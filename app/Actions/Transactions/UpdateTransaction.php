@@ -37,7 +37,7 @@ class UpdateTransaction
             $paymentMethod = PaymentMethod::withTrashed()->findOrFail($data['payment_method_id']);
             $transaction->payment_method_id = $paymentMethod->id;
             $transaction->payment_method_name = $paymentMethod->name;
-            $transaction->atm_fee_rate = $paymentMethod->atm_fee_rate;
+            $transaction->iva_rate = $paymentMethod->iva_rate;
         }
 
         if ($data['barber_id'] !== $transaction->barber_id) {
@@ -51,8 +51,8 @@ class UpdateTransaction
         $transaction->notes = $data['notes'];
         $transaction->performed_at = $performedAt;
 
-        $split = RevenueSplit::calculate($transaction->amount, $transaction->atm_fee_rate, $transaction->barber_commission_rate);
-        $transaction->atm_fee_amount = $split->atmFee;
+        $split = RevenueSplit::calculate($transaction->amount, $transaction->iva_rate, $transaction->barber_commission_rate);
+        $transaction->iva_amount = $split->iva;
         $transaction->barber_amount = $split->barber;
         $transaction->shop_amount = $split->shop;
 

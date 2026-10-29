@@ -21,7 +21,7 @@ defineProps<{
                         Servicios
                     </th>
                     <th class="px-4 py-2.5 text-right font-medium">Bruto</th>
-                    <th class="px-4 py-2.5 text-right font-medium">ATM</th>
+                    <th class="px-4 py-2.5 text-right font-medium">IVA</th>
                     <th class="px-4 py-2.5 text-right font-medium">Barbero</th>
                     <th class="px-4 py-2.5 text-right font-medium">Barbería</th>
                     <th class="px-4 py-2.5 text-right font-medium">Propinas</th>
@@ -41,7 +41,7 @@ defineProps<{
                     <td
                         class="px-4 py-2.5 text-right text-muted-foreground tabular-nums"
                     >
-                        {{ formatMoney(line.atm_fee_total) }}
+                        {{ formatMoney(line.iva_total) }}
                     </td>
                     <td class="px-4 py-2.5 text-right tabular-nums">
                         {{ formatMoney(line.barber_total) }}
@@ -75,7 +75,7 @@ defineProps<{
                         {{ formatMoney(totals.gross_total) }}
                     </td>
                     <td class="px-4 py-2.5 text-right tabular-nums">
-                        {{ formatMoney(totals.atm_fee_total) }}
+                        {{ formatMoney(totals.iva_total) }}
                     </td>
                     <td class="px-4 py-2.5 text-right tabular-nums">
                         {{ formatMoney(totals.barber_total) }}

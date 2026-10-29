@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import type { RouteDefinition } from '@/wayfinder';
-import { computed, watch } from 'vue';
+import { computed } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,12 +28,20 @@ const props = defineProps<{
 
 const isAdmin = computed(() => props.currentBarber === null);
 
+type ServiceLine = { service_id: number; amount: number | undefined };
+
 const form = useForm({
     barber_id: props.transaction?.barber_id ?? (null as number | null),
-    service_id: props.transaction?.service_id ?? (null as number | null),
+    services: (props.transaction
+        ? [
+              {
+                  service_id: props.transaction.service_id,
+                  amount: props.transaction.amount,
+              },
+          ]
+        : []) as ServiceLine[],
     payment_method_id:
         props.transaction?.payment_method_id ?? (null as number | null),
-    amount: props.transaction?.amount ?? (undefined as number | undefined),
     tip: props.transaction?.tip ?? (undefined as number | undefined),
     notes: props.transaction?.notes ?? '',
     performed_at: props.transaction?.performed_at.slice(0, 16) ?? '',
@@ -41,8 +49,17 @@ const form = useForm({
 
 const tipPresets = [0, 1000, 2000, 3000, 5000];
 
-const selectedService = computed(() =>
-    props.services.find((service) => service.id === form.service_id),
+// A new registration can include several services; a correction edits exactly one.
+const allowsMultipleServices = computed(() => !props.transaction);
+
+const lines = computed(() =>
+    form.services.flatMap((line) => {
+        const service = props.services.find(
+            (service) => service.id === line.service_id,
+        );
+
+        return service ? [{ line, service }] : [];
+    }),
 );
 const selectedMethod = computed(() =>
     props.paymentMethods.find((method) => method.id === form.payment_method_id),
@@ -53,31 +70,64 @@ const selectedBarber = computed(() =>
         : props.currentBarber,
 );
 
-// Autocomplete the amount with the base price of the chosen service.
-watch(
-    () => form.service_id,
-    (serviceId, previous) => {
-        if (serviceId !== previous && selectedService.value) {
-            form.amount = selectedService.value.base_price;
-        }
-    },
+function isSelected(serviceId: number): boolean {
+    return form.services.some((line) => line.service_id === serviceId);
+}
+
+// The amount starts at the base price of the chosen service.
+function toggleService(service: ServiceOption) {
+    const line = { service_id: service.id, amount: service.base_price };
+
+    if (!allowsMultipleServices.value) {
+        form.services = [line];
+    } else if (isSelected(service.id)) {
+        form.services = form.services.filter(
+            (selected) => selected.service_id !== service.id,
+        );
+    } else {
+        form.services = [...form.services, line];
+    }
+}
+
+function amountOf(line: ServiceLine, service: ServiceOption): number {
+    return isAdmin.value ? Number(line.amount ?? 0) : service.base_price;
+}
+
+const errors = computed(
+    () => form.errors as Record<string, string | undefined>,
 );
+
+const servicesError = computed(
+    () =>
+        errors.value.services ??
+        errors.value.service_id ??
+        Object.entries(errors.value).find(([field]) =>
+            /^services\.\d+\.service_id$/.test(field),
+        )?.[1],
+);
+
+function amountError(index: number): string | undefined {
+    return props.transaction
+        ? errors.value.amount
+        : errors.value[`services.${index}.amount`];
+}
 
 const amount = computed(() =>
-    isAdmin.value
-        ? Number(form.amount ?? 0)
-        : (selectedService.value?.base_price ?? 0),
+    lines.value.reduce(
+        (total, { line, service }) => total + amountOf(line, service),
+        0,
+    ),
 );
 
-const atmFeeRate = computed(() => {
+const ivaRate = computed(() => {
     if (
         props.transaction &&
         form.payment_method_id === props.transaction.payment_method_id
     ) {
-        return props.transaction.atm_fee_rate;
+        return props.transaction.iva_rate;
     }
 
-    return Number(selectedMethod.value?.atm_fee_rate ?? 0);
+    return Number(selectedMethod.value?.iva_rate ?? 0);
 });
 
 const commissionRate = computed(() => {
@@ -88,20 +138,42 @@ const commissionRate = computed(() => {
     return Number(selectedBarber.value?.commission_rate ?? 0);
 });
 
+// Each service is stored as its own transaction, so the split is rounded per service.
 const split = computed(() =>
-    calculateRevenueSplit(amount.value, atmFeeRate.value, commissionRate.value),
+    lines.value.reduce(
+        (total, { line, service }) => {
+            const lineSplit = calculateRevenueSplit(
+                amountOf(line, service),
+                ivaRate.value,
+                commissionRate.value,
+            );
+
+            return {
+                iva: total.iva + lineSplit.iva,
+                barber: total.barber + lineSplit.barber,
+                shop: total.shop + lineSplit.shop,
+            };
+        },
+        { iva: 0, barber: 0, shop: 0 },
+    ),
 );
 
 const canPreview = computed(
     () =>
-        !!selectedService.value &&
+        lines.value.length > 0 &&
         !!selectedMethod.value &&
         !!selectedBarber.value,
 );
 
 function submit() {
-    form.transform((data) => ({
+    form.transform(({ services, ...data }) => ({
         ...data,
+        ...(props.transaction
+            ? {
+                  service_id: services[0]?.service_id,
+                  amount: services[0]?.amount,
+              }
+            : { services }),
         tip: data.tip || 0,
         performed_at: data.performed_at || undefined,
     })).submit(props.action, {
@@ -110,9 +182,8 @@ function submit() {
         onSuccess: () => {
             if (!props.transaction) {
                 form.reset(
-                    'service_id',
+                    'services',
                     'payment_method_id',
-                    'amount',
                     'tip',
                     'notes',
                     'performed_at',
@@ -162,17 +233,23 @@ const chipActive =
             </section>
 
             <section class="space-y-2">
-                <Label>{{ isAdmin ? '2.' : '1.' }} Servicio</Label>
+                <Label>
+                    {{ isAdmin ? '2.' : '1.' }}
+                    {{ allowsMultipleServices ? 'Servicios' : 'Servicio' }}
+                    <span
+                        v-if="allowsMultipleServices"
+                        class="font-normal text-muted-foreground"
+                        >(puedes elegir varios)</span
+                    >
+                </Label>
                 <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     <button
                         v-for="service in services"
                         :key="service.id"
                         type="button"
-                        :class="[
-                            chip,
-                            form.service_id === service.id && chipActive,
-                        ]"
-                        @click="form.service_id = service.id"
+                        :aria-pressed="isSelected(service.id)"
+                        :class="[chip, isSelected(service.id) && chipActive]"
+                        @click="toggleService(service)"
                     >
                         <span class="block font-medium">{{
                             service.name
@@ -182,41 +259,64 @@ const chipActive =
                         </span>
                     </button>
                 </div>
-                <InputError :message="form.errors.service_id" />
+                <InputError :message="servicesError" />
             </section>
 
             <section class="grid gap-4 sm:grid-cols-2">
-                <div class="grid gap-2">
-                    <Label for="amount">Monto del servicio</Label>
-                    <Input
-                        v-if="isAdmin"
-                        id="amount"
-                        v-model.number="form.amount"
-                        type="number"
-                        inputmode="numeric"
-                        min="0"
-                        step="100"
-                        placeholder="Se completa al elegir el servicio"
-                    />
+                <div class="grid content-start gap-2">
+                    <Label>{{
+                        lines.length > 1
+                            ? 'Monto de los servicios'
+                            : 'Monto del servicio'
+                    }}</Label>
                     <div
-                        v-else
-                        class="flex h-9 items-center rounded-md border bg-muted/50 px-3 text-sm tabular-nums"
+                        v-if="lines.length === 0"
+                        class="flex h-9 items-center rounded-md border border-dashed px-3 text-sm text-muted-foreground"
                     >
-                        {{ formatMoney(amount) }}
+                        Elige un servicio
                     </div>
-                    <p
-                        v-if="
-                            isAdmin &&
-                            selectedService &&
-                            amount !== selectedService.base_price
-                        "
-                        class="text-xs text-amber-600 dark:text-amber-400"
+                    <div
+                        v-for="({ line, service }, index) in lines"
+                        :key="service.id"
+                        class="grid gap-1"
                     >
-                        Precio base:
-                        {{ formatMoney(selectedService.base_price) }}. Indica el
-                        motivo en las notas.
-                    </p>
-                    <InputError :message="form.errors.amount" />
+                        <div class="flex items-center gap-2">
+                            <Label
+                                :for="`amount-${service.id}`"
+                                class="min-w-0 flex-1 truncate font-normal"
+                            >
+                                {{ service.name }}
+                            </Label>
+                            <Input
+                                v-if="isAdmin"
+                                :id="`amount-${service.id}`"
+                                v-model.number="line.amount"
+                                class="w-32"
+                                type="number"
+                                inputmode="numeric"
+                                min="0"
+                                step="100"
+                            />
+                            <div
+                                v-else
+                                class="flex h-9 w-32 items-center justify-end rounded-md border bg-muted/50 px-3 text-sm tabular-nums"
+                            >
+                                {{ formatMoney(service.base_price) }}
+                            </div>
+                        </div>
+                        <p
+                            v-if="
+                                isAdmin &&
+                                amountOf(line, service) !== service.base_price
+                            "
+                            class="text-xs text-amber-600 dark:text-amber-400"
+                        >
+                            Precio base:
+                            {{ formatMoney(service.base_price) }}. Indica el
+                            motivo en las notas.
+                        </p>
+                        <InputError :message="amountError(index)" />
+                    </div>
                 </div>
 
                 <div class="grid gap-2">
@@ -269,7 +369,7 @@ const chipActive =
                     >
                         <span class="block font-medium">{{ method.name }}</span>
                         <span class="text-xs opacity-75">
-                            ATM {{ formatPercent(method.atm_fee_rate) }}
+                            IVA {{ formatPercent(method.iva_rate) }}
                         </span>
                     </button>
                 </div>
@@ -320,12 +420,6 @@ const chipActive =
                         </dd>
                     </div>
                     <div class="flex justify-between">
-                        <dt class="text-muted-foreground">Servicio</dt>
-                        <dd class="font-medium">
-                            {{ selectedService?.name ?? '—' }}
-                        </dd>
-                    </div>
-                    <div class="flex justify-between">
                         <dt class="text-muted-foreground">Pago</dt>
                         <dd class="font-medium">
                             {{ selectedMethod?.name ?? '—' }}
@@ -334,15 +428,28 @@ const chipActive =
                 </dl>
 
                 <dl class="space-y-2 border-t pt-4 text-sm tabular-nums">
-                    <div class="flex justify-between">
-                        <dt>Monto servicio</dt>
+                    <div
+                        v-for="{ line, service } in lines"
+                        :key="service.id"
+                        class="flex justify-between gap-4"
+                    >
+                        <dt class="min-w-0 truncate">{{ service.name }}</dt>
+                        <dd>{{ formatMoney(amountOf(line, service)) }}</dd>
+                    </div>
+                    <div v-if="lines.length === 0" class="flex justify-between">
+                        <dt class="text-muted-foreground">Servicio</dt>
+                        <dd>—</dd>
+                    </div>
+                    <div
+                        v-if="lines.length > 1"
+                        class="flex justify-between font-medium"
+                    >
+                        <dt>Subtotal ({{ lines.length }} servicios)</dt>
                         <dd>{{ formatMoney(amount) }}</dd>
                     </div>
                     <div class="flex justify-between text-muted-foreground">
-                        <dt>ATM ({{ formatPercent(atmFeeRate) }})</dt>
-                        <dd>
-                            − {{ formatMoney(canPreview ? split.atmFee : 0) }}
-                        </dd>
+                        <dt>IVA ({{ formatPercent(ivaRate) }})</dt>
+                        <dd>− {{ formatMoney(canPreview ? split.iva : 0) }}</dd>
                     </div>
                     <div class="flex justify-between">
                         <dt>Barbero ({{ formatPercent(commissionRate) }})</dt>

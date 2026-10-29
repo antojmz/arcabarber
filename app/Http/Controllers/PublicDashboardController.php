@@ -61,11 +61,10 @@ class PublicDashboardController extends Controller
 
         RateLimiter::clear($throttleKey);
 
-        $transaction = $registerTransaction->handle($barber, [
+        $transactions = $registerTransaction->handle($barber, [
             'barber_id' => null,
-            'service_id' => $request->integer('service_id'),
+            'services' => array_map(fn (mixed $serviceId) => ['service_id' => (int) $serviceId, 'amount' => null], $request->validated('service_ids')),
             'payment_method_id' => $request->integer('payment_method_id'),
-            'amount' => null,
             'tip' => $request->integer('tip'),
             'notes' => null,
             'performed_at' => null,
@@ -73,8 +72,8 @@ class PublicDashboardController extends Controller
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => __('Servicio registrado: :service para :barber.', [
-                'service' => $transaction->service_name,
+            'message' => trans_choice('{1} Servicio registrado: :services para :barber.|[2,*] Servicios registrados: :services para :barber.', $transactions->count(), [
+                'services' => $transactions->pluck('service_name')->join(', ', ' y '),
                 'barber' => $barber->name,
             ]),
         ]);
