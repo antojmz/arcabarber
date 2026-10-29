@@ -61,7 +61,7 @@ class PublicDashboardController extends Controller
 
         RateLimiter::clear($throttleKey);
 
-        $transactions = $registerTransaction->handle($barber, [
+        $transaction = $registerTransaction->handle($barber, [
             'barber_id' => null,
             'services' => array_map(fn (mixed $serviceId) => ['service_id' => (int) $serviceId, 'amount' => null], $request->validated('service_ids')),
             'payment_method_id' => $request->integer('payment_method_id'),
@@ -72,8 +72,8 @@ class PublicDashboardController extends Controller
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => trans_choice('{1} Servicio registrado: :services para :barber.|[2,*] Servicios registrados: :services para :barber.', $transactions->count(), [
-                'services' => $transactions->pluck('service_name')->join(', ', ' y '),
+            'message' => trans_choice('{1} Servicio registrado: :services para :barber.|[2,*] Servicios registrados: :services para :barber.', $transaction->items->count(), [
+                'services' => $transaction->items->pluck('service_name')->join(', ', ' y '),
                 'barber' => $barber->name,
             ]),
         ]);
@@ -84,7 +84,7 @@ class PublicDashboardController extends Controller
     /**
      * Today's activity without any monetary field, since every barber can see this screen.
      *
-     * @return array{services_count: int, by_barber: list<array{barber_id: int, services_count: int}>, transactions: list<array{id: int, performed_at: string, barber_name: string, service_name: string, payment_method_name: string}>}
+     * @return array{services_count: int, by_barber: list<array{barber_id: int, services_count: int}>, transactions: list<array{id: int, performed_at: string, barber_name: string, service_names: list<string>, payment_method_name: string}>}
      */
     private function todayActivity(): array
     {
@@ -93,10 +93,10 @@ class PublicDashboardController extends Controller
         $transactions = Transaction::query()
             ->valid()
             ->performedBetween($today->startOfDay(), $today->endOfDay())
-            ->with('barber:id,name')
+            ->with(['barber:id,name', 'items:id,transaction_id,service_name'])
             ->latest('created_at')
             ->latest('id')
-            ->get(['id', 'barber_id', 'performed_at', 'created_at', 'service_name', 'payment_method_name']);
+            ->get(['id', 'barber_id', 'performed_at', 'created_at', 'payment_method_name']);
 
         return [
             'services_count' => $transactions->count(),
@@ -109,7 +109,7 @@ class PublicDashboardController extends Controller
                     'id' => $transaction->id,
                     'performed_at' => $transaction->performed_at->toIso8601String(),
                     'barber_name' => $transaction->barber->name,
-                    'service_name' => $transaction->service_name,
+                    'service_names' => $transaction->items->pluck('service_name')->all(),
                     'payment_method_name' => $transaction->payment_method_name,
                 ])
                 ->all()),

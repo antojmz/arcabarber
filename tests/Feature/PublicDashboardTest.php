@@ -59,7 +59,7 @@ class PublicDashboardTest extends TestCase
                 ->where('today.by_barber.0.services_count', 2)
                 ->has('today.transactions', 2)
                 ->has('today.transactions.0', fn ($row) => $row
-                    ->hasAll(['id', 'performed_at', 'barber_name', 'service_name', 'payment_method_name'])
+                    ->hasAll(['id', 'performed_at', 'barber_name', 'service_names', 'payment_method_name'])
                     ->missingAll(['amount', 'tip', 'barber_amount', 'shop_amount', 'iva_amount'])));
     }
 
@@ -111,10 +111,16 @@ class PublicDashboardTest extends TestCase
             'tip' => 1000,
         ]))->assertSessionHasNoErrors();
 
-        $transactions = Transaction::orderBy('id')->get();
-        $this->assertSame([14000, 8000], $transactions->pluck('amount')->all());
-        $this->assertSame(1000, $transactions->sum('tip'));
-        $this->assertSame([$this->barber->id], $transactions->pluck('barber_id')->unique()->values()->all());
+        $transaction = Transaction::sole();
+        $this->assertSame($this->barber->id, $transaction->barber_id);
+        $this->assertSame(22000, $transaction->amount);
+        $this->assertSame(1000, $transaction->tip);
+        $this->assertSame([14000, 8000], $transaction->items->pluck('amount')->all());
+
+        $this->get(route('public.dashboard'))
+            ->assertInertia(fn ($page) => $page
+                ->where('today.services_count', 1)
+                ->where('today.transactions.0.service_names', [$this->haircut->name, 'Barba']));
     }
 
     public function test_a_wrong_password_is_rejected()

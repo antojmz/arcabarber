@@ -66,8 +66,12 @@ class TransactionRegistrationTest extends TestCase
             'iva_amount' => 600,
             'barber_amount' => 9700,
             'shop_amount' => 9700,
-            'service_name' => 'Corte de cabello',
             'payment_method_name' => 'Débito',
+        ]);
+        $this->assertDatabaseHas('transaction_items', [
+            'transaction_id' => Transaction::sole()->id,
+            'service_name' => 'Corte de cabello',
+            'amount' => 20000,
         ]);
     }
 
@@ -85,7 +89,7 @@ class TransactionRegistrationTest extends TestCase
 
         $transaction = Transaction::sole();
         $this->assertSame(10000, $transaction->amount);
-        $this->assertSame(20000, $transaction->service_base_price);
+        $this->assertSame(20000, $transaction->items->sole()->service_base_price);
         $this->assertSame(300, $transaction->iva_amount);
     }
 
@@ -109,7 +113,7 @@ class TransactionRegistrationTest extends TestCase
         $this->assertTrue($transaction->performed_at->isToday());
     }
 
-    public function test_several_services_are_registered_as_one_transaction_each()
+    public function test_several_services_are_registered_as_one_transaction()
     {
         $barber = User::factory()->barber()->create(['commission_rate' => 50]);
         $beard = Service::factory()->create(['name' => 'Barba', 'base_price' => 8000]);
@@ -123,11 +127,14 @@ class TransactionRegistrationTest extends TestCase
             ->assertSessionHasNoErrors()
             ->assertRedirect(route('transactions.create'));
 
-        $transactions = Transaction::orderBy('id')->get();
-        $this->assertSame(['Corte de cabello', 'Barba'], $transactions->pluck('service_name')->all());
-        $this->assertSame([20000, 8000], $transactions->pluck('amount')->all());
-        $this->assertSame(2000, $transactions->sum('tip'));
-        $this->assertSame(840, $transactions->sum('iva_amount'));
+        $transaction = Transaction::sole();
+        $this->assertSame(['Corte de cabello', 'Barba'], $transaction->items->pluck('service_name')->all());
+        $this->assertSame([20000, 8000], $transaction->items->pluck('amount')->all());
+        $this->assertSame(28000, $transaction->amount);
+        $this->assertSame(2000, $transaction->tip);
+        $this->assertSame(840, $transaction->iva_amount);
+        $this->assertSame([600, 240], $transaction->items->pluck('iva_amount')->all());
+        $this->assertSame($transaction->amount - $transaction->iva_amount, $transaction->barber_amount + $transaction->shop_amount);
     }
 
     public function test_admin_sets_the_amount_of_each_service()
@@ -220,7 +227,7 @@ class TransactionRegistrationTest extends TestCase
         $barber->update(['commission_rate' => 70]);
 
         $transaction = Transaction::sole();
-        $this->assertSame('Corte de cabello', $transaction->service_name);
+        $this->assertSame('Corte de cabello', $transaction->items->sole()->service_name);
         $this->assertSame(20000, $transaction->amount);
         $this->assertSame('3.00', $transaction->iva_rate);
         $this->assertSame('50.00', $transaction->barber_commission_rate);
@@ -231,9 +238,8 @@ class TransactionRegistrationTest extends TestCase
     {
         $admin = User::factory()->admin()->create();
         $barber = User::factory()->barber()->create(['commission_rate' => 50]);
-        $transaction = Transaction::factory()->create([
+        $transaction = Transaction::factory()->withServices($this->haircut)->create([
             'barber_id' => $barber->id,
-            'service_id' => $this->haircut->id,
             'payment_method_id' => $this->debit->id,
         ]);
 
@@ -242,9 +248,8 @@ class TransactionRegistrationTest extends TestCase
         $this->actingAs($admin)
             ->put(route('transactions.update', $transaction), [
                 'barber_id' => $barber->id,
-                'service_id' => $this->haircut->id,
+                'services' => [['service_id' => $this->haircut->id, 'amount' => 10000]],
                 'payment_method_id' => $this->debit->id,
-                'amount' => 10000,
                 'tip' => 500,
                 'performed_at' => $transaction->performed_at->toDateTimeString(),
             ])
@@ -261,22 +266,51 @@ class TransactionRegistrationTest extends TestCase
     {
         $admin = User::factory()->admin()->create();
         $cash = PaymentMethod::factory()->create(['name' => 'Efectivo']);
-        $transaction = Transaction::factory()->create([
-            'service_id' => $this->haircut->id,
+        $transaction = Transaction::factory()->withServices($this->haircut)->create([
             'payment_method_id' => $this->debit->id,
         ]);
 
         $this->actingAs($admin)->put(route('transactions.update', $transaction), [
             'barber_id' => $transaction->barber_id,
-            'service_id' => $this->haircut->id,
+            'services' => [['service_id' => $this->haircut->id, 'amount' => 20000]],
             'payment_method_id' => $cash->id,
-            'amount' => 20000,
             'performed_at' => $transaction->performed_at->toDateTimeString(),
         ])->assertSessionHasNoErrors();
 
         $transaction->refresh();
         $this->assertSame('Efectivo', $transaction->payment_method_name);
         $this->assertSame(0, $transaction->iva_amount);
+    }
+
+    public function test_admin_adds_and_removes_services_of_a_transaction()
+    {
+        $admin = User::factory()->admin()->create();
+        $barber = User::factory()->barber()->create(['commission_rate' => 50]);
+        $beard = Service::factory()->create(['name' => 'Barba', 'base_price' => 8000]);
+        $eyebrows = Service::factory()->create(['name' => 'Cejas', 'base_price' => 3000]);
+        $transaction = Transaction::factory()->withServices($this->haircut, $beard)->create([
+            'barber_id' => $barber->id,
+            'payment_method_id' => $this->debit->id,
+        ]);
+
+        $this->haircut->update(['name' => 'Corte premium', 'base_price' => 30000]);
+
+        $this->actingAs($admin)->put(route('transactions.update', $transaction), [
+            'barber_id' => $barber->id,
+            'services' => [
+                ['service_id' => $this->haircut->id, 'amount' => 20000],
+                ['service_id' => $eyebrows->id, 'amount' => 3000],
+            ],
+            'payment_method_id' => $this->debit->id,
+            'performed_at' => $transaction->performed_at->toDateTimeString(),
+        ])->assertSessionHasNoErrors();
+
+        $transaction->refresh();
+        $this->assertSame(['Corte de cabello', 'Cejas'], $transaction->items->pluck('service_name')->all());
+        $this->assertSame([20000, 3000], $transaction->items->pluck('service_base_price')->all());
+        $this->assertSame(23000, $transaction->amount);
+        $this->assertSame(690, $transaction->iva_amount);
+        $this->assertSame($transaction->items->sum('barber_amount'), $transaction->barber_amount);
     }
 
     public function test_admin_can_void_a_transaction_with_a_reason()

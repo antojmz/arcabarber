@@ -32,14 +32,10 @@ type ServiceLine = { service_id: number; amount: number | undefined };
 
 const form = useForm({
     barber_id: props.transaction?.barber_id ?? (null as number | null),
-    services: (props.transaction
-        ? [
-              {
-                  service_id: props.transaction.service_id,
-                  amount: props.transaction.amount,
-              },
-          ]
-        : []) as ServiceLine[],
+    services: (props.transaction?.items.map((item) => ({
+        service_id: item.service_id,
+        amount: item.amount,
+    })) ?? []) as ServiceLine[],
     payment_method_id:
         props.transaction?.payment_method_id ?? (null as number | null),
     tip: props.transaction?.tip ?? (undefined as number | undefined),
@@ -48,9 +44,6 @@ const form = useForm({
 });
 
 const tipPresets = [0, 1000, 2000, 3000, 5000];
-
-// A new registration can include several services; a correction edits exactly one.
-const allowsMultipleServices = computed(() => !props.transaction);
 
 const lines = computed(() =>
     form.services.flatMap((line) => {
@@ -78,9 +71,7 @@ function isSelected(serviceId: number): boolean {
 function toggleService(service: ServiceOption) {
     const line = { service_id: service.id, amount: service.base_price };
 
-    if (!allowsMultipleServices.value) {
-        form.services = [line];
-    } else if (isSelected(service.id)) {
+    if (isSelected(service.id)) {
         form.services = form.services.filter(
             (selected) => selected.service_id !== service.id,
         );
@@ -100,16 +91,13 @@ const errors = computed(
 const servicesError = computed(
     () =>
         errors.value.services ??
-        errors.value.service_id ??
         Object.entries(errors.value).find(([field]) =>
             /^services\.\d+\.service_id$/.test(field),
         )?.[1],
 );
 
 function amountError(index: number): string | undefined {
-    return props.transaction
-        ? errors.value.amount
-        : errors.value[`services.${index}.amount`];
+    return errors.value[`services.${index}.amount`];
 }
 
 const amount = computed(() =>
@@ -166,14 +154,8 @@ const canPreview = computed(
 );
 
 function submit() {
-    form.transform(({ services, ...data }) => ({
+    form.transform((data) => ({
         ...data,
-        ...(props.transaction
-            ? {
-                  service_id: services[0]?.service_id,
-                  amount: services[0]?.amount,
-              }
-            : { services }),
         tip: data.tip || 0,
         performed_at: data.performed_at || undefined,
     })).submit(props.action, {
@@ -234,11 +216,8 @@ const chipActive =
 
             <section class="space-y-2">
                 <Label>
-                    {{ isAdmin ? '2.' : '1.' }}
-                    {{ allowsMultipleServices ? 'Servicios' : 'Servicio' }}
-                    <span
-                        v-if="allowsMultipleServices"
-                        class="font-normal text-muted-foreground"
+                    {{ isAdmin ? '2.' : '1.' }} Servicios
+                    <span class="font-normal text-muted-foreground"
                         >(puedes elegir varios)</span
                     >
                 </Label>

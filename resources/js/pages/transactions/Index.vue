@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatDateTime } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
+import { joinServiceNames } from '@/lib/transactions';
 import { create, edit, index } from '@/routes/transactions';
 import type {
     BarberOption,
@@ -178,7 +179,7 @@ watch(
                                 class="font-medium"
                                 :class="{ 'line-through': transaction.voided }"
                             >
-                                {{ transaction.service_name }}
+                                {{ joinServiceNames(transaction.items) }}
                             </p>
                             <p class="text-xs text-muted-foreground">
                                 {{ formatDateTime(transaction.performed_at) }}
@@ -292,8 +293,25 @@ watch(
                                         'line-through': transaction.voided,
                                     }"
                                 >
-                                    {{ transaction.service_name }}
+                                    {{ joinServiceNames(transaction.items) }}
                                 </span>
+                                <p
+                                    v-if="transaction.items.length > 1"
+                                    class="text-xs text-muted-foreground tabular-nums"
+                                >
+                                    <template
+                                        v-for="(
+                                            item, index
+                                        ) in transaction.items"
+                                        :key="item.service_id"
+                                    >
+                                        <template v-if="index > 0">
+                                            ·
+                                        </template>
+                                        {{ item.service_name }}
+                                        {{ formatMoney(item.amount) }}
+                                    </template>
+                                </p>
                                 <p
                                     v-if="transaction.notes"
                                     class="text-xs text-muted-foreground"

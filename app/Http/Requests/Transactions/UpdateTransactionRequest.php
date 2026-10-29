@@ -18,9 +18,11 @@ class UpdateTransactionRequest extends FormRequest
     {
         return [
             'barber_id' => ['required', 'integer', Rule::exists('users', 'id')->where('role', UserRole::Barber->value)],
-            'service_id' => ['required', 'integer', Rule::exists('services', 'id')],
+            'services' => ['required', 'array', 'min:1', 'max:20'],
+            'services.*' => ['array:service_id,amount'],
+            'services.*.service_id' => ['required', 'integer', 'distinct', Rule::exists('services', 'id')],
+            'services.*.amount' => ['required', 'integer', 'min:0', 'max:10000000'],
             'payment_method_id' => ['required', 'integer', Rule::exists('payment_methods', 'id')],
-            'amount' => ['required', 'integer', 'min:0', 'max:10000000'],
             'tip' => ['nullable', 'integer', 'min:0', 'max:10000000'],
             'notes' => ['nullable', 'string', 'max:255'],
             'performed_at' => ['required', 'date', 'before_or_equal:now'],
@@ -30,15 +32,17 @@ class UpdateTransactionRequest extends FormRequest
     /**
      * The validated data, typed for the UpdateTransaction action.
      *
-     * @return array{barber_id: int, service_id: int, payment_method_id: int, amount: int, tip: int, notes: string|null, performed_at: string}
+     * @return array{barber_id: int, services: list<array{service_id: int, amount: int}>, payment_method_id: int, tip: int, notes: string|null, performed_at: string}
      */
     public function transactionData(): array
     {
         return [
             'barber_id' => $this->integer('barber_id'),
-            'service_id' => $this->integer('service_id'),
+            'services' => array_values(array_map(fn (array $service) => [
+                'service_id' => (int) $service['service_id'],
+                'amount' => (int) $service['amount'],
+            ], $this->validated('services'))),
             'payment_method_id' => $this->integer('payment_method_id'),
-            'amount' => $this->integer('amount'),
             'tip' => $this->integer('tip'),
             'notes' => $this->filled('notes') ? $this->string('notes')->toString() : null,
             'performed_at' => $this->string('performed_at')->toString(),

@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\Transaction;
+use App\Models\TransactionItem;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -29,9 +30,12 @@ class TransactionResource extends JsonResource
             'performed_at' => $this->performed_at->toIso8601String(),
             'barber_id' => $this->barber_id,
             'barber_name' => $this->whenLoaded('barber', fn () => $this->barber->name),
-            'service_id' => $this->service_id,
-            'service_name' => $this->service_name,
-            'service_base_price' => $this->service_base_price,
+            'items' => $this->whenLoaded('items', fn () => $this->items->map(fn (TransactionItem $item) => [
+                'service_id' => $item->service_id,
+                'service_name' => $item->service_name,
+                'service_base_price' => $item->service_base_price,
+                'amount' => $item->amount,
+            ])->all()),
             'payment_method_id' => $this->payment_method_id,
             'payment_method_name' => $this->payment_method_name,
             'iva_rate' => (float) $this->iva_rate,

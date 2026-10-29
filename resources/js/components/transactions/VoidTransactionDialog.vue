@@ -16,6 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatMoney } from '@/lib/money';
+import { joinServiceNames } from '@/lib/transactions';
 import { voidMethod } from '@/routes/transactions';
 import type { Transaction } from '@/types';
 
@@ -48,7 +49,7 @@ const open = ref(false);
                 <DialogHeader class="space-y-3">
                     <DialogTitle>¿Anular esta transacción?</DialogTitle>
                     <DialogDescription>
-                        {{ transaction.service_name }} de
+                        {{ joinServiceNames(transaction.items) }} de
                         {{ transaction.barber_name }} por
                         {{ formatMoney(transaction.amount) }}. La transacción no
                         se borra: queda registrada como anulada y deja de sumar

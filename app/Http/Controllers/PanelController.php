@@ -23,7 +23,7 @@ class PanelController extends Controller
         [$monthStart, $monthEnd] = ClosingPeriod::Monthly->range($today);
 
         $recent = Transaction::query()
-            ->with('barber:id,name')
+            ->with(['barber:id,name', 'items'])
             ->when($barberId, fn ($query) => $query->where('barber_id', $barberId))
             ->latest('performed_at')
             ->latest('id')

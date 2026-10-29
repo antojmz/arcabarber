@@ -23,21 +23,48 @@ class TransactionFactory extends Factory
     {
         return [
             'barber_id' => User::factory(),
-            'service_id' => Service::factory(),
             'payment_method_id' => PaymentMethod::factory(),
             'registered_by' => fn (array $attributes) => $attributes['barber_id'],
             'performed_at' => now(),
-            'service_name' => fn (array $attributes) => Service::whereKey($attributes['service_id'])->firstOrFail()->name,
-            'service_base_price' => fn (array $attributes) => Service::whereKey($attributes['service_id'])->firstOrFail()->base_price,
             'payment_method_name' => fn (array $attributes) => PaymentMethod::whereKey($attributes['payment_method_id'])->firstOrFail()->name,
             'iva_rate' => fn (array $attributes) => PaymentMethod::whereKey($attributes['payment_method_id'])->firstOrFail()->iva_rate,
             'barber_commission_rate' => fn (array $attributes) => User::whereKey($attributes['barber_id'])->firstOrFail()->commission_rate,
-            'amount' => fn (array $attributes) => $attributes['service_base_price'],
+            'amount' => fake()->numberBetween(5, 30) * 1000,
             'tip' => 0,
             'iva_amount' => fn (array $attributes) => $this->split($attributes)->iva,
             'barber_amount' => fn (array $attributes) => $this->split($attributes)->barber,
             'shop_amount' => fn (array $attributes) => $this->split($attributes)->shop,
         ];
+    }
+
+    /**
+     * Include the given services at their base price, replacing the amounts
+     * of the transaction with the sum of its items.
+     */
+    public function withServices(Service ...$services): static
+    {
+        return $this->afterCreating(function (Transaction $transaction) use ($services): void {
+            foreach ($services as $service) {
+                $split = RevenueSplit::calculate($service->base_price, $transaction->iva_rate, $transaction->barber_commission_rate);
+
+                $transaction->items()->create([
+                    'service_id' => $service->id,
+                    'service_name' => $service->name,
+                    'service_base_price' => $service->base_price,
+                    'amount' => $service->base_price,
+                    'iva_amount' => $split->iva,
+                    'barber_amount' => $split->barber,
+                    'shop_amount' => $split->shop,
+                ]);
+            }
+
+            $transaction->update([
+                'amount' => $transaction->items()->sum('amount'),
+                'iva_amount' => $transaction->items()->sum('iva_amount'),
+                'barber_amount' => $transaction->items()->sum('barber_amount'),
+                'shop_amount' => $transaction->items()->sum('shop_amount'),
+            ]);
+        });
     }
 
     /**

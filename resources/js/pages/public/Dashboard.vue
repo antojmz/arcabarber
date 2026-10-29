@@ -35,7 +35,7 @@ const props = defineProps<{
             id: number;
             performed_at: string;
             barber_name: string;
-            service_name: string;
+            service_names: string[];
             payment_method_name: string;
         }[];
     };
@@ -418,7 +418,7 @@ const chipActive =
                         >
                             <div class="min-w-0">
                                 <p class="truncate font-medium">
-                                    {{ transaction.service_name }}
+                                    {{ transaction.service_names.join(' + ') }}
                                 </p>
                                 <p class="text-xs text-muted-foreground">
                                     {{ transaction.barber_name }} ·

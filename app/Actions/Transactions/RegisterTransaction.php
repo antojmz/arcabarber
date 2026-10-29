@@ -6,27 +6,25 @@ use App\Models\PaymentMethod;
 use App\Models\Service;
 use App\Models\Transaction;
 use App\Models\User;
-use App\Support\RevenueSplit;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class RegisterTransaction
 {
-    public function __construct(private EnsurePeriodIsOpen $ensurePeriodIsOpen) {}
+    public function __construct(
+        private EnsurePeriodIsOpen $ensurePeriodIsOpen,
+        private SaveTransactionWithItems $saveTransactionWithItems,
+    ) {}
 
     /**
-     * Register one or more services performed by a barber for the same client.
-     * Each service is stored as its own transaction so reports keep counting
-     * services; the tip is recorded once, on the first of them.
+     * Register a visit of a client: one transaction with every service the
+     * barber performed, charged together with a single tip.
      *
      * Barbers can only register services for themselves, at the service base
      * price and at the current time; only admins can pick the barber, change
      * the amounts or set a different date.
      *
      * @param  array{barber_id: int|null, services: list<array{service_id: int, amount: int|null}>, payment_method_id: int, tip: int, notes: string|null, performed_at: string|null}  $data
-     * @return Collection<int, Transaction>
      */
-    public function handle(User $actor, array $data): Collection
+    public function handle(User $actor, array $data): Transaction
     {
         $services = Service::findOrFail(array_column($data['services'], 'service_id'))->keyBy('id');
         $paymentMethod = PaymentMethod::findOrFail($data['payment_method_id']);
@@ -41,29 +39,27 @@ class RegisterTransaction
 
         $this->ensurePeriodIsOpen->handle($barber->id, $performedAt);
 
-        return DB::transaction(fn () => collect($data['services'])->values()->map(function (array $item, int $index) use ($actor, $barber, $data, $paymentMethod, $performedAt, $services) {
-            $service = $services->get($item['service_id']);
-            $amount = $actor->isAdmin() ? ($item['amount'] ?? $service->base_price) : $service->base_price;
-            $split = RevenueSplit::calculate($amount, $paymentMethod->iva_rate, $barber->commission_rate);
+        $transaction = new Transaction([
+            'barber_id' => $barber->id,
+            'payment_method_id' => $paymentMethod->id,
+            'registered_by' => $actor->id,
+            'performed_at' => $performedAt,
+            'payment_method_name' => $paymentMethod->name,
+            'iva_rate' => $paymentMethod->iva_rate,
+            'barber_commission_rate' => $barber->commission_rate,
+            'tip' => $data['tip'],
+            'notes' => $data['notes'],
+        ]);
 
-            return Transaction::create([
-                'barber_id' => $barber->id,
+        return $this->saveTransactionWithItems->handle($transaction, array_map(function (array $line) use ($actor, $services): array {
+            $service = $services->get($line['service_id']);
+
+            return [
                 'service_id' => $service->id,
-                'payment_method_id' => $paymentMethod->id,
-                'registered_by' => $actor->id,
-                'performed_at' => $performedAt,
                 'service_name' => $service->name,
                 'service_base_price' => $service->base_price,
-                'payment_method_name' => $paymentMethod->name,
-                'iva_rate' => $paymentMethod->iva_rate,
-                'barber_commission_rate' => $barber->commission_rate,
-                'amount' => $amount,
-                'tip' => $index === 0 ? $data['tip'] : 0,
-                'iva_amount' => $split->iva,
-                'barber_amount' => $split->barber,
-                'shop_amount' => $split->shop,
-                'notes' => $data['notes'],
-            ]);
-        }));
+                'amount' => $actor->isAdmin() ? ($line['amount'] ?? $service->base_price) : $service->base_price,
+            ];
+        }, $data['services']));
     }
 }

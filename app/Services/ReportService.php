@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Transaction;
+use App\Models\TransactionItem;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -30,7 +31,7 @@ class ReportService
     public function summary(CarbonInterface $start, CarbonInterface $end, ?int $barberId = null): array
     {
         $byPaymentMethod = $this->breakdown($start, $end, $barberId, 'payment_method_id', 'MAX(payment_method_name) as payment_method_name');
-        $byService = $this->breakdown($start, $end, $barberId, 'service_id', 'MAX(service_name) as service_name');
+        $byService = $this->byService($start, $end, $barberId);
         $byBarber = $barberId === null ? $this->byBarber($start, $end) : [];
 
         return [
@@ -48,9 +49,9 @@ class ReportService
      */
     public function serviceCountsByPaymentMethod(CarbonInterface $start, CarbonInterface $end, ?int $barberId = null): array
     {
-        return array_values($this->query($start, $end, $barberId)
-            ->selectRaw('service_id, payment_method_id, COUNT(*) as services_count')
-            ->groupBy('service_id', 'payment_method_id')
+        return array_values($this->itemsQuery($start, $end, $barberId)
+            ->selectRaw('transaction_items.service_id, transactions.payment_method_id, COUNT(*) as services_count')
+            ->groupBy('transaction_items.service_id', 'transactions.payment_method_id')
             ->toBase()
             ->get()
             ->map(fn (object $row) => [
@@ -76,6 +77,26 @@ class ReportService
         $totals['payout_total'] = $totals['barber_total'] + $totals['tips_total'];
 
         return $totals;
+    }
+
+    /**
+     * Totals per service, read from the services of each transaction. Tips
+     * belong to the whole visit, so they are not attributed to any service.
+     *
+     * @return list<array<string, int|string|null>>
+     */
+    private function byService(CarbonInterface $start, CarbonInterface $end, ?int $barberId): array
+    {
+        return array_values($this->itemsQuery($start, $end, $barberId)
+            ->selectRaw('transaction_items.service_id, MAX(transaction_items.service_name) as service_name, COUNT(*) as services_count, '
+                .'SUM(transaction_items.amount) as gross_total, 0 as tips_total, SUM(transaction_items.iva_amount) as iva_total, '
+                .'SUM(transaction_items.barber_amount) as barber_total, SUM(transaction_items.shop_amount) as shop_total')
+            ->groupBy('transaction_items.service_id')
+            ->orderByDesc('gross_total')
+            ->toBase()
+            ->get()
+            ->map(fn (object $row) => $this->castRow((array) $row))
+            ->all());
     }
 
     /**
@@ -124,6 +145,20 @@ class ReportService
             ->valid()
             ->performedBetween($start, $end)
             ->when($barberId !== null, fn (Builder $query) => $query->where('barber_id', $barberId));
+    }
+
+    /**
+     * Services of the valid transactions of the period.
+     *
+     * @return Builder<TransactionItem>
+     */
+    private function itemsQuery(CarbonInterface $start, CarbonInterface $end, ?int $barberId): Builder
+    {
+        return TransactionItem::query()
+            ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
+            ->whereNull('transactions.voided_at')
+            ->whereBetween('transactions.performed_at', [$start, $end])
+            ->when($barberId !== null, fn (Builder $query) => $query->where('transactions.barber_id', $barberId));
     }
 
     /**

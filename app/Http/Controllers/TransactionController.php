@@ -57,7 +57,7 @@ class TransactionController extends Controller
         $closedPeriods = ClosedPeriods::between($from, $to);
 
         $transactions = $query
-            ->with('barber:id,name')
+            ->with(['barber:id,name', 'items:id,transaction_id,service_id,service_name,service_base_price,amount'])
             ->latest('performed_at')
             ->latest('id')
             ->paginate(25)
@@ -95,13 +95,13 @@ class TransactionController extends Controller
      */
     public function store(StoreTransactionRequest $request, RegisterTransaction $registerTransaction): RedirectResponse
     {
-        $transactions = $registerTransaction->handle($request->user(), $request->transactionData());
+        $transaction = $registerTransaction->handle($request->user(), $request->transactionData());
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => trans_choice('{1} Servicio registrado: :services para :barber.|[2,*] Servicios registrados: :services para :barber.', $transactions->count(), [
-                'services' => $transactions->pluck('service_name')->join(', ', ' y '),
-                'barber' => $transactions->first()->barber->name,
+            'message' => trans_choice('{1} Servicio registrado: :services para :barber.|[2,*] Servicios registrados: :services para :barber.', $transaction->items->count(), [
+                'services' => $transaction->items->pluck('service_name')->join(', ', ' y '),
+                'barber' => $transaction->barber->name,
             ]),
         ]);
 
@@ -116,7 +116,7 @@ class TransactionController extends Controller
         Gate::authorize('update', $transaction);
 
         return Inertia::render('transactions/Edit', [
-            'transaction' => (new TransactionResource($transaction->load('barber:id,name')))->resolve(),
+            'transaction' => (new TransactionResource($transaction->load(['barber:id,name', 'items'])))->resolve(),
             ...$this->catalogs($request->user(), $transaction),
         ]);
     }
@@ -159,11 +159,11 @@ class TransactionController extends Controller
     {
         return [
             'services' => Service::withTrashed()
-                ->where($this->activeOr($transaction?->service_id))
+                ->where($this->activeOr($transaction?->items->pluck('service_id')->all() ?? []))
                 ->ordered()
                 ->get(['id', 'name', 'base_price']),
             'paymentMethods' => PaymentMethod::withTrashed()
-                ->where($this->activeOr($transaction?->payment_method_id))
+                ->where($this->activeOr(array_filter([$transaction?->payment_method_id])))
                 ->ordered()
                 ->get(['id', 'name', 'iva_rate']),
             'barbers' => $user->isAdmin() ? $this->barberOptions($transaction?->barber_id) : [],
@@ -178,22 +178,23 @@ class TransactionController extends Controller
     {
         return User::withTrashed()
             ->barbers()
-            ->where($this->activeOr($includeId))
+            ->where($this->activeOr(array_filter([$includeId])))
             ->orderBy('name')
             ->get(['id', 'name', 'commission_rate']);
     }
 
     /**
-     * Constrain a catalog query to active, non deleted rows, plus the given id.
+     * Constrain a catalog query to active, non deleted rows, plus the given ids.
      *
+     * @param  list<int>  $ids
      * @return Closure(Builder<*>): void
      */
-    private function activeOr(?int $id): Closure
+    private function activeOr(array $ids): Closure
     {
-        return function (Builder $query) use ($id): void {
+        return function (Builder $query) use ($ids): void {
             $query
                 ->where(fn (Builder $query) => $query->where('is_active', true)->whereNull('deleted_at'))
-                ->when($id, fn (Builder $query) => $query->orWhere('id', $id));
+                ->when($ids !== [], fn (Builder $query) => $query->orWhereIn('id', $ids));
         };
     }
 }

@@ -2,6 +2,7 @@
 import { Badge } from '@/components/ui/badge';
 import { formatDateTime } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
+import { joinServiceNames } from '@/lib/transactions';
 import type { Transaction } from '@/types';
 
 defineProps<{
@@ -23,7 +24,7 @@ defineProps<{
                     class="truncate font-medium"
                     :class="{ 'line-through': transaction.voided }"
                 >
-                    {{ transaction.service_name }}
+                    {{ joinServiceNames(transaction.items) }}
                     <template v-if="showBarber"
                         >· {{ transaction.barber_name }}</template
                     >

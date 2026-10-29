@@ -64,14 +64,19 @@ export type BarberOption = {
     is_active?: boolean;
 };
 
+export type TransactionItem = {
+    service_id: number;
+    service_name: string;
+    service_base_price: number;
+    amount: number;
+};
+
 export type Transaction = {
     id: number;
     performed_at: string;
     barber_id: number;
     barber_name?: string;
-    service_id: number;
-    service_name: string;
-    service_base_price: number;
+    items: TransactionItem[];
     payment_method_id: number;
     payment_method_name: string;
     iva_rate: number;
