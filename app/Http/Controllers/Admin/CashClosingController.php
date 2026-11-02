@@ -6,8 +6,11 @@ use App\Actions\Closings\CloseCashPeriod;
 use App\Enums\ClosingPeriod;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreCashClosingRequest;
+use App\Http\Resources\TransactionResource;
 use App\Models\CashClosing;
+use App\Models\Transaction;
 use App\Models\User;
+use App\Services\ReportService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -60,17 +63,26 @@ class CashClosingController extends Controller
         return to_route('admin.closings.show', $closing);
     }
 
-    public function show(CashClosing $closing): Response
+    /**
+     * Show a closing with the transactions of its period. Closed periods cannot
+     * be edited, so these transactions match the snapshot stored in the closing.
+     */
+    public function show(CashClosing $closing, ReportService $reports): Response
     {
-        $closing->load(['barber:id,name', 'closedBy:id,name', 'lines']);
+        $closing->load(['barber:id,name', 'closedBy:id,name']);
+
+        $transactions = $reports->transactions(
+            $closing->period_start->startOfDay(),
+            $closing->period_end->endOfDay(),
+            $closing->barber_id,
+        );
 
         return Inertia::render('admin/closings/Show', [
             'closing' => [
                 ...$this->present($closing),
                 'notes' => $closing->notes,
-                'by_payment_method' => $closing->lines->whereNull('barber_id')->values(),
-                'by_barber' => $closing->lines->whereNotNull('barber_id')->values(),
             ],
+            'transactions' => $transactions->map(fn (Transaction $transaction) => (new TransactionResource($transaction))->resolve())->all(),
         ]);
     }
 

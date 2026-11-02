@@ -7,6 +7,7 @@ use App\Models\TransactionItem;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
 class ReportService
@@ -40,6 +41,21 @@ class ReportService
             'by_service' => $byService,
             'by_barber' => $byBarber,
         ];
+    }
+
+    /**
+     * Every valid transaction of the period in chronological order, with the
+     * same filters as the summary so the list adds up to its totals.
+     *
+     * @return EloquentCollection<int, Transaction>
+     */
+    public function transactions(CarbonInterface $start, CarbonInterface $end, ?int $barberId = null): EloquentCollection
+    {
+        return $this->query($start, $end, $barberId)
+            ->with(['barber:id,name', 'items:id,transaction_id,service_id,service_name,service_base_price,amount'])
+            ->orderBy('performed_at')
+            ->orderBy('id')
+            ->get();
     }
 
     /**

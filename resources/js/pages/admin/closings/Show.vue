@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
 import { Printer } from '@lucide/vue';
-import BarberBreakdown from '@/components/BarberBreakdown.vue';
 import Heading from '@/components/Heading.vue';
-import PaymentMethodBreakdown from '@/components/PaymentMethodBreakdown.vue';
 import StatCard from '@/components/StatCard.vue';
+import TransactionDetailTable from '@/components/transactions/TransactionDetailTable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatDateTime, formatRange } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
 import { index, markPaid } from '@/routes/admin/closings';
-import type { BarberLine, CashClosing, PaymentMethodLine } from '@/types';
+import type { CashClosing, Transaction } from '@/types';
 
 defineOptions({
     layout: {
@@ -22,11 +21,8 @@ defineOptions({
 });
 
 defineProps<{
-    closing: CashClosing & {
-        notes: string | null;
-        by_payment_method: PaymentMethodLine[];
-        by_barber: BarberLine[];
-    };
+    closing: CashClosing & { notes: string | null };
+    transactions: Transaction[];
 }>();
 
 function print() {
@@ -124,16 +120,12 @@ function print() {
         </div>
 
         <section class="space-y-3">
-            <h3 class="font-semibold">Desglose por método de pago</h3>
-            <PaymentMethodBreakdown
-                :lines="closing.by_payment_method"
+            <h3 class="font-semibold">Detalle de transacciones</h3>
+            <TransactionDetailTable
+                :transactions="transactions"
                 :totals="closing"
+                :show-barber="!closing.barber_id"
             />
-        </section>
-
-        <section v-if="!closing.barber_id" class="space-y-3">
-            <h3 class="font-semibold">Productividad del equipo</h3>
-            <BarberBreakdown :lines="closing.by_barber" />
         </section>
     </div>
 </template>

@@ -138,7 +138,9 @@ class ReportTest extends TestCase
     public function test_barber_report_page()
     {
         $admin = User::factory()->admin()->create();
-        $this->transaction($this->carlos, $this->debit, '2026-10-14 10:00');
+        $transaction = $this->transaction($this->carlos, $this->debit, '2026-10-14 10:00');
+        $this->transaction($this->carlos, $this->cash, '2026-10-14 11:00', ['voided_at' => now(), 'voided_by' => $this->carlos->id]);
+        $this->transaction($this->matias, $this->cash, '2026-10-14 11:00');
 
         $this->actingAs($admin)
             ->get(route('admin.reports.barber', ['barber_id' => $this->carlos->id, 'period' => 'monthly', 'date' => '2026-10-14']))
@@ -148,15 +150,17 @@ class ReportTest extends TestCase
                 ->where('barber.id', $this->carlos->id)
                 ->where('range.start', '2026-10-01')
                 ->where('summary.totals.payout_total', 9700)
-                ->has('serviceCounts', 1)
+                ->has('transactions', 1)
+                ->where('transactions.0.id', $transaction->id)
+                ->where('transactions.0.items.0.service_id', $this->haircut->id)
                 ->where('closing', null));
     }
 
     public function test_general_report_page()
     {
         $admin = User::factory()->admin()->create();
-        $this->transaction($this->carlos, $this->debit, '2026-10-14 10:00');
-        $this->transaction($this->matias, $this->cash, '2026-10-14 10:00');
+        $later = $this->transaction($this->carlos, $this->debit, '2026-10-14 11:00');
+        $earlier = $this->transaction($this->matias, $this->cash, '2026-10-14 10:00');
 
         $this->actingAs($admin)
             ->get(route('admin.reports.general'))
@@ -165,7 +169,9 @@ class ReportTest extends TestCase
                 ->component('admin/reports/General')
                 ->where('filters.period', 'daily')
                 ->where('summary.totals.gross_total', 40000)
-                ->has('summary.by_payment_method', 2)
-                ->has('summary.by_barber', 2));
+                ->has('transactions', 2)
+                ->where('transactions.0.id', $earlier->id)
+                ->where('transactions.0.barber_name', 'Matías')
+                ->where('transactions.1.id', $later->id));
     }
 }

@@ -3,20 +3,13 @@ import { Head } from '@inertiajs/vue3';
 import ClosePeriodDialog from '@/components/ClosePeriodDialog.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import Heading from '@/components/Heading.vue';
-import PaymentMethodBreakdown from '@/components/PaymentMethodBreakdown.vue';
 import PeriodFilter from '@/components/PeriodFilter.vue';
-import ServiceCountTable from '@/components/ServiceCountTable.vue';
 import StatCard from '@/components/StatCard.vue';
+import TransactionDetailTable from '@/components/transactions/TransactionDetailTable.vue';
 import { formatRange } from '@/lib/dates';
 import { formatMoney, formatPercent } from '@/lib/money';
 import { barber as barberReport } from '@/routes/admin/reports';
-import type {
-    BarberOption,
-    DateRange,
-    PaymentMethodOption,
-    ServiceCount,
-    Summary,
-} from '@/types';
+import type { BarberOption, DateRange, Summary, Transaction } from '@/types';
 
 defineOptions({
     layout: {
@@ -30,10 +23,9 @@ defineProps<{
     filters: { period: string; date: string; barber_id: number | null };
     range: DateRange;
     barbers: BarberOption[];
-    paymentMethods: PaymentMethodOption[];
     barber: BarberOption | null;
     summary: Summary | null;
-    serviceCounts: ServiceCount[];
+    transactions: Transaction[];
     closing: { id: number; created_at: string | null } | null;
 }>();
 </script>
@@ -111,18 +103,9 @@ defineProps<{
             </div>
 
             <section class="space-y-3">
-                <h3 class="font-semibold">Servicios realizados</h3>
-                <ServiceCountTable
-                    :services="summary.by_service"
-                    :counts="serviceCounts"
-                    :payment-methods="paymentMethods"
-                />
-            </section>
-
-            <section class="space-y-3">
-                <h3 class="font-semibold">Desglose por método de pago</h3>
-                <PaymentMethodBreakdown
-                    :lines="summary.by_payment_method"
+                <h3 class="font-semibold">Detalle de transacciones</h3>
+                <TransactionDetailTable
+                    :transactions="transactions"
                     :totals="summary.totals"
                 />
             </section>

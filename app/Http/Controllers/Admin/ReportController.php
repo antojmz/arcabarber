@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ReportRequest;
+use App\Http\Resources\TransactionResource;
 use App\Models\CashClosing;
-use App\Models\PaymentMethod;
+use App\Models\Transaction;
 use App\Models\User;
 use App\Services\ReportService;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -35,10 +37,9 @@ class ReportController extends Controller
             ],
             'range' => ['start' => $start->toDateString(), 'end' => $end->toDateString()],
             'barbers' => User::withTrashed()->barbers()->orderBy('name')->get(['id', 'name', 'commission_rate', 'is_active']),
-            'paymentMethods' => PaymentMethod::withTrashed()->ordered()->get(['id', 'name']),
             'barber' => $barber?->only('id', 'name', 'commission_rate'),
             'summary' => $barber ? $this->reports->summary($start, $end, $barber->id) : null,
-            'serviceCounts' => $barber ? $this->reports->serviceCountsByPaymentMethod($start, $end, $barber->id) : [],
+            'transactions' => $barber ? $this->presentTransactions($this->reports->transactions($start, $end, $barber->id)) : [],
             'closing' => $barber ? $this->findClosing($period->value, $start->toDateString(), $barber->id) : null,
         ]);
     }
@@ -58,8 +59,18 @@ class ReportController extends Controller
             ],
             'range' => ['start' => $start->toDateString(), 'end' => $end->toDateString()],
             'summary' => $this->reports->summary($start, $end),
+            'transactions' => $this->presentTransactions($this->reports->transactions($start, $end)),
             'closing' => $this->findClosing($period->value, $start->toDateString(), null),
         ]);
+    }
+
+    /**
+     * @param  EloquentCollection<int, Transaction>  $transactions
+     * @return list<array<string, mixed>>
+     */
+    private function presentTransactions(EloquentCollection $transactions): array
+    {
+        return $transactions->map(fn (Transaction $transaction) => (new TransactionResource($transaction))->resolve())->all();
     }
 
     /**

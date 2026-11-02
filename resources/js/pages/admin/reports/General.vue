@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import BarberBreakdown from '@/components/BarberBreakdown.vue';
 import ClosePeriodDialog from '@/components/ClosePeriodDialog.vue';
 import Heading from '@/components/Heading.vue';
-import PaymentMethodBreakdown from '@/components/PaymentMethodBreakdown.vue';
 import PeriodFilter from '@/components/PeriodFilter.vue';
 import StatCard from '@/components/StatCard.vue';
+import TransactionDetailTable from '@/components/transactions/TransactionDetailTable.vue';
 import { formatRange } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
 import { general } from '@/routes/admin/reports';
-import type { DateRange, Summary } from '@/types';
+import type { DateRange, Summary, Transaction } from '@/types';
 
 defineOptions({
     layout: {
@@ -21,6 +20,7 @@ defineProps<{
     filters: { period: string; date: string };
     range: DateRange;
     summary: Summary;
+    transactions: Transaction[];
     closing: { id: number; created_at: string | null } | null;
 }>();
 </script>
@@ -90,16 +90,12 @@ defineProps<{
         </div>
 
         <section class="space-y-3">
-            <h3 class="font-semibold">Ingresos por método de pago</h3>
-            <PaymentMethodBreakdown
-                :lines="summary.by_payment_method"
+            <h3 class="font-semibold">Detalle de transacciones</h3>
+            <TransactionDetailTable
+                :transactions="transactions"
                 :totals="summary.totals"
+                show-barber
             />
-        </section>
-
-        <section class="space-y-3">
-            <h3 class="font-semibold">Productividad del equipo</h3>
-            <BarberBreakdown :lines="summary.by_barber" />
         </section>
     </div>
 </template>

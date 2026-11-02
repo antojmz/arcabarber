@@ -38,6 +38,8 @@ class CashClosingTest extends TestCase
             'payment_method_id' => $debit->id,
             'tip' => 1000,
         ]);
+        Transaction::factory()->create(['barber_id' => User::factory()->barber(), 'performed_at' => now()]);
+        Transaction::factory()->create(['barber_id' => $this->barber->id, 'performed_at' => now()->subDay()]);
 
         $this->actingAs($this->admin)
             ->post(route('admin.closings.store'), [
@@ -61,7 +63,10 @@ class CashClosingTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->component('admin/closings/Show')
                 ->where('closing.payout_total', 21400)
-                ->has('closing.by_payment_method', 1));
+                ->has('transactions', 2)
+                ->where('transactions.0.barber_id', $this->barber->id)
+                ->where('transactions.0.items.0.service_id', $service->id)
+                ->where('transactions.1.barber_id', $this->barber->id));
     }
 
     public function test_a_period_cannot_be_closed_twice()
