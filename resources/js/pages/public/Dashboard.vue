@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, useForm, usePoll } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
@@ -18,7 +18,8 @@ import { Label } from '@/components/ui/label';
 import { Toaster } from '@/components/ui/sonner';
 import { Spinner } from '@/components/ui/spinner';
 import { formatTime } from '@/lib/dates';
-import { formatMoney } from '@/lib/money';
+import { formatMoney, formatPercent } from '@/lib/money';
+import { calculateTip, tipPercentages } from '@/lib/tip';
 import { login } from '@/routes';
 import { store } from '@/routes/public/services';
 
@@ -57,7 +58,14 @@ const form = useForm({
     password: '',
 });
 
-const tipPresets = [0, 1000, 2000, 3000, 5000];
+// Chosen tip percentage; null when the tip is "Sin propina" or a manual amount.
+const tipPercentage = ref<number | null>(null);
+
+function chooseTipPercentage(percentage: number | null) {
+    tipPercentage.value = percentage;
+    form.tip =
+        percentage === null ? 0 : calculateTip(servicesTotal.value, percentage);
+}
 
 const servicesError = computed(() => {
     const errors = form.errors as Record<string, string | undefined>;
@@ -87,6 +95,14 @@ const servicesTotal = computed(() =>
         0,
     ),
 );
+
+// Keep a percentage tip in sync when services are added or removed.
+watch(servicesTotal, (total) => {
+    if (tipPercentage.value !== null) {
+        form.tip = calculateTip(total, tipPercentage.value);
+    }
+});
+
 const selectedMethod = computed(() =>
     props.paymentMethods.find((method) => method.id === form.payment_method_id),
 );
@@ -146,6 +162,7 @@ function cancelConfirmation() {
  * Close the modal after a successful registration, leaving the form ready for the next service.
  */
 function finishRegistration() {
+    tipPercentage.value = null;
     form.reset();
     form.clearErrors();
     confirmOpen.value = false;
@@ -340,24 +357,47 @@ const chipActive =
                                 min="0"
                                 step="100"
                                 placeholder="0"
+                                @update:model-value="tipPercentage = null"
                             />
                             <div class="flex flex-wrap gap-1.5">
                                 <button
-                                    v-for="preset in tipPresets"
-                                    :key="preset"
                                     type="button"
-                                    class="rounded-md border px-2 py-1 text-xs tabular-nums transition-colors hover:bg-accent"
+                                    class="rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent"
                                     :class="{
                                         'border-primary bg-primary/10':
-                                            (form.tip ?? 0) === preset,
+                                            tipPercentage === null && !form.tip,
                                     }"
-                                    @click="form.tip = preset"
+                                    @click="chooseTipPercentage(null)"
                                 >
-                                    {{
-                                        preset === 0
-                                            ? 'Sin propina'
-                                            : formatMoney(preset)
-                                    }}
+                                    Sin propina
+                                </button>
+                                <button
+                                    v-for="percentage in tipPercentages"
+                                    :key="percentage"
+                                    type="button"
+                                    class="rounded-md border px-2 py-1 text-xs tabular-nums transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                                    :class="{
+                                        'border-primary bg-primary/10':
+                                            tipPercentage === percentage,
+                                    }"
+                                    :disabled="servicesTotal === 0"
+                                    @click="chooseTipPercentage(percentage)"
+                                >
+                                    {{ formatPercent(percentage) }}
+                                    <span
+                                        v-if="servicesTotal > 0"
+                                        class="text-muted-foreground"
+                                    >
+                                        ·
+                                        {{
+                                            formatMoney(
+                                                calculateTip(
+                                                    servicesTotal,
+                                                    percentage,
+                                                ),
+                                            )
+                                        }}
+                                    </span>
                                 </button>
                             </div>
                             <InputError :message="form.errors.tip" />
