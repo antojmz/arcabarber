@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import type { RouteDefinition } from '@/wayfinder';
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { formatMoney, formatPercent } from '@/lib/money';
 import { calculateRevenueSplit } from '@/lib/revenueSplit';
+import { calculateTip, tipPercentages } from '@/lib/tip';
 import type {
     BarberOption,
     PaymentMethodOption,
@@ -43,7 +44,13 @@ const form = useForm({
     performed_at: props.transaction?.performed_at.slice(0, 16) ?? '',
 });
 
-const tipPresets = [0, 1000, 2000, 3000, 5000];
+// Chosen tip percentage; null when the tip is "Sin propina" or a manual amount.
+const tipPercentage = ref<number | null>(null);
+
+function chooseTipPercentage(percentage: number | null) {
+    tipPercentage.value = percentage;
+    form.tip = percentage === null ? 0 : calculateTip(amount.value, percentage);
+}
 
 const lines = computed(() =>
     form.services.flatMap((line) => {
@@ -107,6 +114,13 @@ const amount = computed(() =>
     ),
 );
 
+// Keep a percentage tip in sync when services or their amounts change.
+watch(amount, (total) => {
+    if (tipPercentage.value !== null) {
+        form.tip = calculateTip(total, tipPercentage.value);
+    }
+});
+
 const ivaRate = computed(() => {
     if (
         props.transaction &&
@@ -163,6 +177,7 @@ function submit() {
         preserveState: true,
         onSuccess: () => {
             if (!props.transaction) {
+                tipPercentage.value = null;
                 form.reset(
                     'services',
                     'payment_method_id',
@@ -308,24 +323,44 @@ const chipActive =
                         min="0"
                         step="100"
                         placeholder="0"
+                        @update:model-value="tipPercentage = null"
                     />
                     <div class="flex flex-wrap gap-1.5">
                         <button
-                            v-for="preset in tipPresets"
-                            :key="preset"
                             type="button"
-                            class="rounded-md border px-2 py-1 text-xs tabular-nums transition-colors hover:bg-accent"
+                            class="rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent"
                             :class="{
                                 'border-primary bg-primary/10':
-                                    (form.tip ?? 0) === preset,
+                                    tipPercentage === null && !form.tip,
                             }"
-                            @click="form.tip = preset"
+                            @click="chooseTipPercentage(null)"
                         >
-                            {{
-                                preset === 0
-                                    ? 'Sin propina'
-                                    : formatMoney(preset)
-                            }}
+                            Sin propina
+                        </button>
+                        <button
+                            v-for="percentage in tipPercentages"
+                            :key="percentage"
+                            type="button"
+                            class="rounded-md border px-2 py-1 text-xs tabular-nums transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                            :class="{
+                                'border-primary bg-primary/10':
+                                    tipPercentage === percentage,
+                            }"
+                            :disabled="amount === 0"
+                            @click="chooseTipPercentage(percentage)"
+                        >
+                            {{ formatPercent(percentage) }}
+                            <span
+                                v-if="amount > 0"
+                                class="text-muted-foreground"
+                            >
+                                ·
+                                {{
+                                    formatMoney(
+                                        calculateTip(amount, percentage),
+                                    )
+                                }}
+                            </span>
                         </button>
                     </div>
                     <InputError :message="form.errors.tip" />
