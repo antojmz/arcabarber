@@ -14,12 +14,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * @property int $id
  * @property string $name
- * @property string $code
- * @property string $atm_fee_rate
+ * @property string $iva_rate
  * @property bool $is_active
  * @property int $sort_order
  */
-#[Fillable(['name', 'code', 'atm_fee_rate', 'is_active', 'sort_order'])]
+#[Fillable(['name', 'iva_rate', 'is_active', 'sort_order'])]
 class PaymentMethod extends Model
 {
     /** @use HasFactory<PaymentMethodFactory> */
@@ -33,7 +32,7 @@ class PaymentMethod extends Model
     protected function casts(): array
     {
         return [
-            'atm_fee_rate' => 'decimal:2',
+            'iva_rate' => 'decimal:2',
             'is_active' => 'boolean',
             'sort_order' => 'integer',
         ];

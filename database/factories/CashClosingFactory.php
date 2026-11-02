@@ -28,7 +28,7 @@ class CashClosingFactory extends Factory
             'services_count' => 0,
             'gross_total' => 0,
             'tips_total' => 0,
-            'atm_fee_total' => 0,
+            'iva_total' => 0,
             'barber_total' => 0,
             'shop_total' => 0,
             'payout_total' => 0,

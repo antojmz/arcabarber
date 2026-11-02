@@ -8,25 +8,24 @@ use DateTimeInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
  * @property int $barber_id
- * @property int $service_id
  * @property int $payment_method_id
  * @property int $registered_by
  * @property CarbonImmutable $performed_at
- * @property string $service_name
- * @property int $service_base_price
  * @property string $payment_method_name
- * @property string $atm_fee_rate
+ * @property string $iva_rate
  * @property string $barber_commission_rate
  * @property int $amount
  * @property int $tip
- * @property int $atm_fee_amount
+ * @property int $iva_amount
  * @property int $barber_amount
  * @property int $shop_amount
  * @property string|null $notes
@@ -35,11 +34,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $void_reason
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
+ * @property-read Collection<int, TransactionItem> $items
  */
 #[Fillable([
-    'barber_id', 'service_id', 'payment_method_id', 'registered_by', 'performed_at',
-    'service_name', 'service_base_price', 'payment_method_name', 'atm_fee_rate', 'barber_commission_rate',
-    'amount', 'tip', 'atm_fee_amount', 'barber_amount', 'shop_amount', 'notes',
+    'barber_id', 'payment_method_id', 'registered_by', 'performed_at',
+    'payment_method_name', 'iva_rate', 'barber_commission_rate',
+    'amount', 'tip', 'iva_amount', 'barber_amount', 'shop_amount', 'notes',
     'voided_at', 'voided_by', 'void_reason',
 ])]
 class Transaction extends Model
@@ -57,12 +57,11 @@ class Transaction extends Model
         return [
             'performed_at' => 'datetime',
             'voided_at' => 'datetime',
-            'atm_fee_rate' => 'decimal:2',
+            'iva_rate' => 'decimal:2',
             'barber_commission_rate' => 'decimal:2',
-            'service_base_price' => 'integer',
             'amount' => 'integer',
             'tip' => 'integer',
-            'atm_fee_amount' => 'integer',
+            'iva_amount' => 'integer',
             'barber_amount' => 'integer',
             'shop_amount' => 'integer',
         ];
@@ -77,11 +76,13 @@ class Transaction extends Model
     }
 
     /**
-     * @return BelongsTo<Service, $this>
+     * The services performed in this transaction.
+     *
+     * @return HasMany<TransactionItem, $this>
      */
-    public function service(): BelongsTo
+    public function items(): HasMany
     {
-        return $this->belongsTo(Service::class)->withTrashed();
+        return $this->hasMany(TransactionItem::class)->orderBy('id');
     }
 
     /**

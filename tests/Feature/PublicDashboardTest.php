@@ -36,7 +36,7 @@ class PublicDashboardTest extends TestCase
     {
         return [
             'barber_id' => $this->barber->id,
-            'service_id' => $this->haircut->id,
+            'service_ids' => [$this->haircut->id],
             'payment_method_id' => $this->cash->id,
             'password' => '1234',
             ...$overrides,
@@ -59,8 +59,8 @@ class PublicDashboardTest extends TestCase
                 ->where('today.by_barber.0.services_count', 2)
                 ->has('today.transactions', 2)
                 ->has('today.transactions.0', fn ($row) => $row
-                    ->hasAll(['id', 'performed_at', 'barber_name', 'service_name', 'payment_method_name'])
-                    ->missingAll(['amount', 'tip', 'barber_amount', 'shop_amount', 'atm_fee_amount'])));
+                    ->hasAll(['id', 'performed_at', 'barber_name', 'service_names', 'payment_method_name'])
+                    ->missingAll(['amount', 'tip', 'barber_amount', 'shop_amount', 'iva_amount'])));
     }
 
     public function test_todays_services_are_sorted_by_creation_date_descending()
@@ -100,6 +100,27 @@ class PublicDashboardTest extends TestCase
         $this->assertSame(14000, $transaction->amount);
         $this->assertSame(2000, $transaction->tip);
         $this->assertTrue($transaction->performed_at->isToday());
+    }
+
+    public function test_several_services_are_registered_at_once()
+    {
+        $beard = Service::factory()->create(['name' => 'Barba', 'base_price' => 8000]);
+
+        $this->post(route('public.services.store'), $this->payload([
+            'service_ids' => [$this->haircut->id, $beard->id],
+            'tip' => 1000,
+        ]))->assertSessionHasNoErrors();
+
+        $transaction = Transaction::sole();
+        $this->assertSame($this->barber->id, $transaction->barber_id);
+        $this->assertSame(22000, $transaction->amount);
+        $this->assertSame(1000, $transaction->tip);
+        $this->assertSame([14000, 8000], $transaction->items->pluck('amount')->all());
+
+        $this->get(route('public.dashboard'))
+            ->assertInertia(fn ($page) => $page
+                ->where('today.services_count', 1)
+                ->where('today.transactions.0.service_names', [$this->haircut->name, 'Barba']));
     }
 
     public function test_a_wrong_password_is_rejected()

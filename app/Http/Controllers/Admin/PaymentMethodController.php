@@ -14,7 +14,8 @@ class PaymentMethodController extends Controller
     public function index(): Response
     {
         return Inertia::render('admin/payment-methods/Index', [
-            'paymentMethods' => PaymentMethod::ordered()->get(['id', 'name', 'code', 'atm_fee_rate', 'is_active', 'sort_order']),
+            'paymentMethods' => PaymentMethod::ordered()->get(['id', 'name', 'iva_rate', 'is_active', 'sort_order']),
+            'trashedPaymentMethods' => PaymentMethod::onlyTrashed()->ordered()->get(['id', 'name', 'iva_rate', 'deleted_at']),
         ]);
     }
 
@@ -35,7 +36,7 @@ class PaymentMethodController extends Controller
     public function edit(PaymentMethod $paymentMethod): Response
     {
         return Inertia::render('admin/payment-methods/Form', [
-            'paymentMethod' => $paymentMethod->only('id', 'name', 'code', 'atm_fee_rate', 'is_active', 'sort_order'),
+            'paymentMethod' => $paymentMethod->only('id', 'name', 'iva_rate', 'is_active', 'sort_order'),
         ]);
     }
 
@@ -53,6 +54,18 @@ class PaymentMethodController extends Controller
         $paymentMethod->delete();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Método de pago eliminado.')]);
+
+        return to_route('admin.payment-methods.index');
+    }
+
+    /**
+     * Bring back a soft deleted payment method, keeping its previous settings.
+     */
+    public function restore(PaymentMethod $paymentMethod): RedirectResponse
+    {
+        $paymentMethod->restore();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Método de pago reactivado.')]);
 
         return to_route('admin.payment-methods.index');
     }

@@ -90,9 +90,9 @@ defineProps<{
                     :value="formatMoney(summary.totals.gross_total)"
                 />
                 <StatCard
-                    label="Comisión ATM"
+                    label="IVA"
                     tone="muted"
-                    :value="formatMoney(summary.totals.atm_fee_total)"
+                    :value="formatMoney(summary.totals.iva_total)"
                 />
                 <StatCard
                     label="Comisión barbero"

@@ -31,12 +31,11 @@ class CashClosingTest extends TestCase
 
     public function test_closing_a_barber_period_stores_a_snapshot()
     {
-        $debit = PaymentMethod::factory()->withAtmFee(3)->create();
+        $debit = PaymentMethod::factory()->withIva(3)->create();
         $service = Service::factory()->create(['base_price' => 20000]);
-        Transaction::factory()->count(2)->create([
+        Transaction::factory()->count(2)->withServices($service)->create([
             'barber_id' => $this->barber->id,
             'payment_method_id' => $debit->id,
-            'service_id' => $service->id,
             'tip' => 1000,
         ]);
 
@@ -103,7 +102,7 @@ class CashClosingTest extends TestCase
 
         $this->actingAs($this->barber)
             ->post(route('transactions.store'), [
-                'service_id' => $transaction->service_id,
+                'services' => [['service_id' => Service::factory()->create()->id]],
                 'payment_method_id' => $transaction->payment_method_id,
             ])
             ->assertSessionHasErrors('performed_at');

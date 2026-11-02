@@ -48,7 +48,7 @@ defineProps<{
     <div class="space-y-6 p-4 md:p-6">
         <Heading
             title="Mi producción"
-            :description="`Tu comisión actual es ${formatPercent(barber.commission_rate)} del monto neto (después de la comisión ATM).`"
+            :description="`Tu comisión actual es ${formatPercent(barber.commission_rate)} del monto neto (después del IVA).`"
         />
 
         <PeriodFilter

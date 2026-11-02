@@ -97,9 +97,9 @@ function print() {
             <StatCard label="Servicios" :value="closing.services_count" />
             <StatCard label="Bruto" :value="formatMoney(closing.gross_total)" />
             <StatCard
-                label="Comisión ATM"
+                label="IVA"
                 tone="muted"
-                :value="formatMoney(closing.atm_fee_total)"
+                :value="formatMoney(closing.iva_total)"
             />
             <StatCard
                 label="Comisión barbero(s)"

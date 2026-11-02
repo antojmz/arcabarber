@@ -35,16 +35,15 @@ class ReportTest extends TestCase
         $this->carlos = User::factory()->barber()->create(['name' => 'Carlos', 'commission_rate' => 50]);
         $this->matias = User::factory()->barber()->create(['name' => 'Matías', 'commission_rate' => 40]);
         $this->cash = PaymentMethod::factory()->create(['name' => 'Efectivo']);
-        $this->debit = PaymentMethod::factory()->withAtmFee(3)->create(['name' => 'Débito']);
+        $this->debit = PaymentMethod::factory()->withIva(3)->create(['name' => 'Débito']);
         $this->haircut = Service::factory()->create(['base_price' => 20000]);
     }
 
     private function transaction(User $barber, PaymentMethod $method, string $when, array $attributes = []): Transaction
     {
-        return Transaction::factory()->create([
+        return Transaction::factory()->withServices($this->haircut)->create([
             'barber_id' => $barber->id,
             'payment_method_id' => $method->id,
-            'service_id' => $this->haircut->id,
             'performed_at' => $when,
             ...$attributes,
         ]);
@@ -75,7 +74,7 @@ class ReportTest extends TestCase
             'services_count' => 3,
             'gross_total' => 60000,
             'tips_total' => 1000,
-            'atm_fee_total' => 1200,
+            'iva_total' => 1200,
             'barber_total' => 29400,
             'shop_total' => 29400,
             'payout_total' => 30400,
@@ -85,6 +84,38 @@ class ReportTest extends TestCase
         $this->assertSame(2, $byMethod['Débito']['services_count']);
         $this->assertSame(1, $byMethod['Efectivo']['services_count']);
         $this->assertSame([], $summary['by_barber']);
+    }
+
+    public function test_services_are_counted_per_service_and_visits_per_transaction()
+    {
+        $beard = Service::factory()->create(['name' => 'Barba', 'base_price' => 8000]);
+        Transaction::factory()->withServices($this->haircut, $beard)->create([
+            'barber_id' => $this->carlos->id,
+            'payment_method_id' => $this->debit->id,
+            'performed_at' => '2026-10-14 10:00',
+        ]);
+        $this->transaction($this->carlos, $this->cash, '2026-10-14 11:00');
+
+        [$start, $end] = ClosingPeriod::Daily->range(now());
+        $reports = app(ReportService::class);
+        $summary = $reports->summary($start, $end, $this->carlos->id);
+
+        $this->assertSame(2, $summary['totals']['services_count']);
+        $this->assertSame(48000, $summary['totals']['gross_total']);
+
+        $byService = collect($summary['by_service'])->keyBy('service_id');
+        $this->assertSame(2, $byService[$this->haircut->id]['services_count']);
+        $this->assertSame(40000, $byService[$this->haircut->id]['gross_total']);
+        $this->assertSame(1, $byService[$beard->id]['services_count']);
+
+        $counts = collect($reports->serviceCountsByPaymentMethod($start, $end, $this->carlos->id))
+            ->map(fn (array $row) => [$row['service_id'], $row['payment_method_id'], $row['services_count']])
+            ->sort()->values()->all();
+        $this->assertEqualsCanonicalizing([
+            [$this->haircut->id, $this->debit->id, 1],
+            [$this->haircut->id, $this->cash->id, 1],
+            [$beard->id, $this->debit->id, 1],
+        ], $counts);
     }
 
     public function test_general_summary_includes_every_barber()

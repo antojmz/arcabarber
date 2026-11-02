@@ -41,11 +41,11 @@ class Service extends Model
     }
 
     /**
-     * @return HasMany<Transaction, $this>
+     * @return HasMany<TransactionItem, $this>
      */
-    public function transactions(): HasMany
+    public function transactionItems(): HasMany
     {
-        return $this->hasMany(Transaction::class);
+        return $this->hasMany(TransactionItem::class);
     }
 
     /**

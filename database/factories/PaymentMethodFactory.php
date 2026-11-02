@@ -17,24 +17,21 @@ class PaymentMethodFactory extends Factory
      */
     public function definition(): array
     {
-        $name = fake()->unique()->word();
-
         return [
-            'name' => ucfirst($name),
-            'code' => $name,
-            'atm_fee_rate' => 0,
+            'name' => ucfirst(fake()->unique()->word()),
+            'iva_rate' => 0,
             'is_active' => true,
             'sort_order' => 0,
         ];
     }
 
     /**
-     * Indicate that the payment method charges the given ATM fee.
+     * Indicate that the payment method charges the given IVA rate.
      */
-    public function withAtmFee(float $rate): static
+    public function withIva(float $rate): static
     {
         return $this->state(fn (array $attributes) => [
-            'atm_fee_rate' => $rate,
+            'iva_rate' => $rate,
         ]);
     }
 
