@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Plus } from '@lucide/vue';
+import { GripVertical, Plus } from '@lucide/vue';
+import { nextTick, ref, watch } from 'vue';
+import { VueDraggable } from 'vue-draggable-plus';
 import ConfirmDeleteButton from '@/components/ConfirmDeleteButton.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import Heading from '@/components/Heading.vue';
@@ -13,6 +15,7 @@ import {
     destroy,
     edit,
     index,
+    reorder,
     restore,
 } from '@/routes/admin/payment-methods';
 
@@ -22,13 +25,12 @@ defineOptions({
     },
 });
 
-defineProps<{
+const props = defineProps<{
     paymentMethods: {
         id: number;
         name: string;
         iva_rate: string;
         is_active: boolean;
-        sort_order: number;
     }[];
     trashedPaymentMethods: {
         id: number;
@@ -37,6 +39,27 @@ defineProps<{
         deleted_at: string;
     }[];
 }>();
+
+const orderedPaymentMethods = ref([...props.paymentMethods]);
+
+watch(
+    () => props.paymentMethods,
+    (items) => {
+        orderedPaymentMethods.value = [...items];
+    },
+);
+
+/**
+ * Persist the dragged order; it is the order used when registering.
+ */
+function saveOrder(): void {
+    nextTick(() => {
+        router.visit(reorder(), {
+            data: { ids: orderedPaymentMethods.value.map((item) => item.id) },
+            preserveScroll: true,
+        });
+    });
+}
 </script>
 
 <template>
@@ -46,7 +69,7 @@ defineProps<{
         <div class="flex flex-wrap items-start justify-between gap-4">
             <Heading
                 title="Métodos de pago"
-                description="El IVA se descuenta del monto antes de repartir entre barbero y barbería."
+                description="El IVA se descuenta del monto antes de repartir entre barbero y barbería. Arrastra las filas para cambiar el orden en que aparecen al registrar."
             />
             <Button as-child>
                 <Link :href="create()"><Plus /> Nuevo método</Link>
@@ -65,49 +88,82 @@ defineProps<{
             v-else-if="paymentMethods.length > 0"
             class="overflow-x-auto rounded-xl border"
         >
-            <table class="w-full text-sm">
-                <thead
-                    class="bg-muted/50 text-left text-xs text-muted-foreground uppercase"
-                >
-                    <tr>
-                        <th class="px-4 py-2.5 font-medium">Método</th>
-                        <th class="px-4 py-2.5 text-right font-medium">IVA</th>
-                        <th class="px-4 py-2.5 font-medium">Estado</th>
-                        <th class="px-4 py-2.5"></th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y">
-                    <tr v-for="method in paymentMethods" :key="method.id">
-                        <td class="px-4 py-2.5">
-                            <span class="font-medium">{{ method.name }}</span>
-                        </td>
-                        <td class="px-4 py-2.5 text-right tabular-nums">
-                            {{ formatPercent(method.iva_rate) }}
-                        </td>
-                        <td class="px-4 py-2.5">
-                            <Badge
-                                :variant="
-                                    method.is_active ? 'secondary' : 'outline'
-                                "
-                            >
-                                {{ method.is_active ? 'Activo' : 'Inactivo' }}
-                            </Badge>
-                        </td>
-                        <td class="px-4 py-2.5">
-                            <div class="flex justify-end gap-1">
-                                <Button variant="ghost" size="sm" as-child>
-                                    <Link :href="edit(method.id)">Editar</Link>
-                                </Button>
-                                <ConfirmDeleteButton
-                                    :action="destroy(method.id)"
-                                    :title="`¿Eliminar ${method.name}?`"
-                                    description="Dejará de aparecer al registrar servicios. Las transacciones ya registradas no se modifican."
-                                />
-                            </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <VueDraggable
+                v-model="orderedPaymentMethods"
+                target="tbody"
+                handle=".drag-handle"
+                :animation="150"
+                @update="saveOrder"
+            >
+                <table class="w-full text-sm">
+                    <thead
+                        class="bg-muted/50 text-left text-xs text-muted-foreground uppercase"
+                    >
+                        <tr>
+                            <th class="w-10 px-2 py-2.5">
+                                <span class="sr-only">Orden</span>
+                            </th>
+                            <th class="px-4 py-2.5 font-medium">Método</th>
+                            <th class="px-4 py-2.5 text-right font-medium">
+                                IVA
+                            </th>
+                            <th class="px-4 py-2.5 font-medium">Estado</th>
+                            <th class="px-4 py-2.5"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        <tr
+                            v-for="method in orderedPaymentMethods"
+                            :key="method.id"
+                        >
+                            <td class="w-10 px-2 py-2.5">
+                                <button
+                                    type="button"
+                                    class="drag-handle flex cursor-grab touch-none items-center text-muted-foreground hover:text-foreground active:cursor-grabbing"
+                                    :aria-label="`Arrastrar ${method.name} para cambiar el orden`"
+                                >
+                                    <GripVertical class="size-4" />
+                                </button>
+                            </td>
+                            <td class="px-4 py-2.5">
+                                <span class="font-medium">{{
+                                    method.name
+                                }}</span>
+                            </td>
+                            <td class="px-4 py-2.5 text-right tabular-nums">
+                                {{ formatPercent(method.iva_rate) }}
+                            </td>
+                            <td class="px-4 py-2.5">
+                                <Badge
+                                    :variant="
+                                        method.is_active
+                                            ? 'secondary'
+                                            : 'outline'
+                                    "
+                                >
+                                    {{
+                                        method.is_active ? 'Activo' : 'Inactivo'
+                                    }}
+                                </Badge>
+                            </td>
+                            <td class="px-4 py-2.5">
+                                <div class="flex justify-end gap-1">
+                                    <Button variant="ghost" size="sm" as-child>
+                                        <Link :href="edit(method.id)"
+                                            >Editar</Link
+                                        >
+                                    </Button>
+                                    <ConfirmDeleteButton
+                                        :action="destroy(method.id)"
+                                        :title="`¿Eliminar ${method.name}?`"
+                                        description="Dejará de aparecer al registrar servicios. Las transacciones ya registradas no se modifican."
+                                    />
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </VueDraggable>
         </div>
 
         <section v-if="trashedPaymentMethods.length > 0" class="space-y-3">

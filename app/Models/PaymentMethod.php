@@ -63,4 +63,12 @@ class PaymentMethod extends Model
     {
         $query->orderBy('sort_order')->orderBy('name');
     }
+
+    /**
+     * The position that places a new record after every existing one.
+     */
+    public static function nextSortOrder(): int
+    {
+        return (static::withTrashed()->max('sort_order') ?? -1) + 1;
+    }
 }
