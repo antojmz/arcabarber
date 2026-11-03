@@ -36,8 +36,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
         Route::resource('barbers', BarberController::class)->except(['show', 'destroy']);
+        Route::put('services/reorder', [ServiceController::class, 'reorder'])->name('services.reorder');
         Route::resource('services', ServiceController::class)->except('show');
         Route::post('services/{service}/restore', [ServiceController::class, 'restore'])->withTrashed()->name('services.restore');
+        Route::put('payment-methods/reorder', [PaymentMethodController::class, 'reorder'])->name('payment-methods.reorder');
         Route::resource('payment-methods', PaymentMethodController::class)->except('show');
         Route::post('payment-methods/{payment_method}/restore', [PaymentMethodController::class, 'restore'])->withTrashed()->name('payment-methods.restore');
 

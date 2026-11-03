@@ -24,7 +24,6 @@ const props = defineProps<{
         base_price: number;
         duration_minutes: number | null;
         is_active: boolean;
-        sort_order: number;
     } | null;
 }>();
 
@@ -34,7 +33,6 @@ const form = useForm({
     duration_minutes:
         props.service?.duration_minutes ?? (undefined as number | undefined),
     is_active: props.service?.is_active ?? true,
-    sort_order: props.service?.sort_order ?? 0,
 });
 
 function submit() {
@@ -87,17 +85,7 @@ function submit() {
                     />
                     <InputError :message="form.errors.duration_minutes" />
                 </div>
-                <div class="grid gap-2">
-                    <Label for="sort_order">Orden en el registro</Label>
-                    <Input
-                        id="sort_order"
-                        v-model.number="form.sort_order"
-                        type="number"
-                        min="0"
-                    />
-                    <InputError :message="form.errors.sort_order" />
-                </div>
-                <div class="flex items-center gap-3 self-start pt-7">
+                <div class="flex items-center gap-3 sm:col-span-2">
                     <Checkbox id="is_active" v-model="form.is_active" />
                     <Label for="is_active">Disponible para registrar</Label>
                 </div>

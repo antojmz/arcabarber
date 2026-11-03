@@ -141,6 +141,78 @@ class CatalogTest extends TestCase
         $this->assertNotSoftDeleted($paymentMethod);
     }
 
+    public function test_admin_reorders_services()
+    {
+        [$cut, $beard, $eyebrows] = Service::factory()->count(3)->sequence(
+            ['name' => 'Corte', 'sort_order' => 0],
+            ['name' => 'Barba', 'sort_order' => 0],
+            ['name' => 'Cejas', 'sort_order' => 1],
+        )->create();
+
+        $this->actingAs($this->admin)
+            ->from(route('admin.services.index'))
+            ->put(route('admin.services.reorder'), ['ids' => [$eyebrows->id, $cut->id, $beard->id]])
+            ->assertRedirect(route('admin.services.index'));
+
+        $this->assertSame([$eyebrows->id, $cut->id, $beard->id], Service::ordered()->pluck('id')->all());
+    }
+
+    public function test_admin_reorders_payment_methods()
+    {
+        [$cash, $debit, $credit] = PaymentMethod::factory()->count(3)->sequence(
+            ['name' => 'Efectivo', 'sort_order' => 0],
+            ['name' => 'Débito', 'sort_order' => 1],
+            ['name' => 'Crédito', 'sort_order' => 2],
+        )->create();
+
+        $this->actingAs($this->admin)
+            ->from(route('admin.payment-methods.index'))
+            ->put(route('admin.payment-methods.reorder'), ['ids' => [$credit->id, $cash->id, $debit->id]])
+            ->assertRedirect(route('admin.payment-methods.index'));
+
+        $this->assertSame([$credit->id, $cash->id, $debit->id], PaymentMethod::ordered()->pluck('id')->all());
+    }
+
+    public function test_reordering_rejects_unknown_ids()
+    {
+        $service = Service::factory()->create(['sort_order' => 3]);
+
+        $this->actingAs($this->admin)
+            ->put(route('admin.services.reorder'), ['ids' => [999999, $service->id]])
+            ->assertSessionHasErrors('ids.0');
+
+        $this->assertSame(3, $service->fresh()->sort_order);
+    }
+
+    public function test_new_catalog_items_are_added_last()
+    {
+        Service::factory()->create(['name' => 'Barba', 'sort_order' => 4]);
+        PaymentMethod::factory()->create(['name' => 'Débito', 'sort_order' => 2]);
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.services.store'), ['name' => 'Afeitado', 'base_price' => 8000, 'is_active' => true])
+            ->assertSessionHasNoErrors();
+        $this->actingAs($this->admin)
+            ->post(route('admin.payment-methods.store'), ['name' => 'Crédito', 'iva_rate' => 0, 'is_active' => true])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(['Barba', 'Afeitado'], Service::ordered()->pluck('name')->all());
+        $this->assertSame(['Débito', 'Crédito'], PaymentMethod::ordered()->pluck('name')->all());
+    }
+
+    public function test_barbers_cannot_reorder_catalogs()
+    {
+        $barber = User::factory()->barber()->create();
+        [$first, $second] = Service::factory()->count(2)->sequence(['sort_order' => 0], ['sort_order' => 1])->create();
+        $paymentMethod = PaymentMethod::factory()->create(['sort_order' => 5]);
+
+        $this->actingAs($barber)->put(route('admin.services.reorder'), ['ids' => [$second->id, $first->id]])->assertForbidden();
+        $this->actingAs($barber)->put(route('admin.payment-methods.reorder'), ['ids' => [$paymentMethod->id]])->assertForbidden();
+
+        $this->assertSame(0, $first->fresh()->sort_order);
+        $this->assertSame(5, $paymentMethod->fresh()->sort_order);
+    }
+
     public function test_barbers_cannot_restore_catalog_items()
     {
         $barber = User::factory()->barber()->create();

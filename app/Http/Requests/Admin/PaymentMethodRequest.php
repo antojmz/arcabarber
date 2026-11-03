@@ -23,7 +23,6 @@ class PaymentMethodRequest extends FormRequest
             'name' => ['required', 'string', 'max:50', Rule::unique(PaymentMethod::class)->ignore($paymentMethod?->id)],
             'iva_rate' => ['required', 'numeric', 'between:0,100'],
             'is_active' => ['required', 'boolean'],
-            'sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
         ];
     }
 

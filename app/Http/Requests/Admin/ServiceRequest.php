@@ -24,7 +24,6 @@ class ServiceRequest extends FormRequest
             'base_price' => ['required', 'integer', 'min:0', 'max:10000000'],
             'duration_minutes' => ['nullable', 'integer', 'min:1', 'max:600'],
             'is_active' => ['required', 'boolean'],
-            'sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
         ];
     }
 

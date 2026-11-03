@@ -25,7 +25,6 @@ const props = defineProps<{
         name: string;
         iva_rate: string;
         is_active: boolean;
-        sort_order: number;
     } | null;
 }>();
 
@@ -33,7 +32,6 @@ const form = useForm({
     name: props.paymentMethod?.name ?? '',
     iva_rate: props.paymentMethod ? Number(props.paymentMethod.iva_rate) : 0,
     is_active: props.paymentMethod?.is_active ?? true,
-    sort_order: props.paymentMethod?.sort_order ?? 0,
 });
 
 const example = computed(() =>
@@ -92,16 +90,6 @@ function submit() {
                         {{ formatMoney(example) }} de IVA.
                     </p>
                     <InputError :message="form.errors.iva_rate" />
-                </div>
-                <div class="grid content-start gap-2">
-                    <Label for="sort_order">Orden en el registro</Label>
-                    <Input
-                        id="sort_order"
-                        v-model.number="form.sort_order"
-                        type="number"
-                        min="0"
-                    />
-                    <InputError :message="form.errors.sort_order" />
                 </div>
                 <div class="flex items-center gap-3 sm:col-span-2">
                     <Checkbox id="is_active" v-model="form.is_active" />
